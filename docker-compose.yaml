@@ -33,6 +33,18 @@ services:
     networks:
       - app-network
 
+  jellyfin:
+    image: jellyfin/jellyfin
+    container_name: jellyfin
+    restart: 'unless-stopped'
+    user: ${JELLYFIN_PUID}:${JELLYFIN_PGID}
+    volumes:
+      - ${JELLYFIN_CONFIG_PATH}:/config
+      - ${JELLYFIN_CACHE_PATH}:/cache
+      - ${JELLYFIN_MEDIA_PATH}:/media
+    networks:
+      - app-network
+
 networks:
   app-network:
     driver: bridge
