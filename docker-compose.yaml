@@ -5,13 +5,16 @@ services:
     container_name: nginx
     restart: unless-stopped
     ports:
-      - "${NGINX_HOST_PORT}:80"
+      - "${NGINX_PORT}:${NGINX_PORT}"
       - "443:443"
     volumes:
       - web-root:/var/www/html
       - ./nginx/conf.d/app.conf:/etc/nginx/conf.d/default.conf
       - ./nginx/includes/proxy_services.conf:/etc/nginx/includes/proxy_services.conf
       - ./nginx/certs:/etc/ssl/certs
+    environment:
+      - NGINX_HOST=${NGINX_HOST}
+      - NGINX_PORT=${NGINX_PORT}
     networks:
       - app-network
 
@@ -28,11 +31,6 @@ services:
     volumes:
       - ${QBITTORRENT_CONFIG_PATH}:/config
       - ${QBITTORRENT_DOWNLOADS_PATH}:/downloads #optional
-      #${DB_DATABASE}
-    #ports:
-    #  - 8080:8080
-    #  - 12854:12854
-    #  - 12854:12854/udp
     networks:
       - app-network
 
