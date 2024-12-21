@@ -1,6 +1,9 @@
 .env
 qbittorrent/config/*
 qbittorrent/downloads/*
+
 jellyfin/config/*
 jellyfin/cache/*
 jellyfin/media/*
+
+nginx/certs/*
