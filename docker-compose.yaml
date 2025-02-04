@@ -40,6 +40,8 @@ services:
       - ${JELLYFIN_CONFIG_PATH}:/config
       - ${JELLYFIN_CACHE_PATH}:/cache
       - ${JELLYFIN_MEDIA_PATH}:/media
+    environment:
+      - TZ=${TZ}
     networks:
       - app-network
 
