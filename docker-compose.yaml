@@ -34,7 +34,7 @@ services:
   jellyfin:
     image: jellyfin/jellyfin
     container_name: jellyfin
-    restart: 'unless-stopped'
+    restart: unless-stopped
     user: ${JELLYFIN_PUID}:${JELLYFIN_PGID}
     volumes:
       - ${JELLYFIN_CONFIG_PATH}:/config
@@ -45,10 +45,27 @@ services:
     networks:
       - app-network
 
+  mumble:
+    image: mumblevoip/mumble-server:latest
+    container_name: mumble
+    restart: unless-stopped
+    ports:
+      - 64738:64738
+      - 64738:64738/udp
+    environment: 
+      - MUMBLE_SUPERUSER_PASSWORD=${MUMBLE_SUPERUSER_PASSWORD}
+      - MUMBLE_CONFIG_SERVER_PASSWORD=${MUMBLE_CONFIG_SERVER_PASSWORD}
+    volumes:
+      - mumble-data:/data
+    networks:
+      - app-network
+
 networks:
   app-network:
     driver: bridge
 
 volumes:
   web-root:
+    driver: local
+  mumble-data: 
     driver: local
