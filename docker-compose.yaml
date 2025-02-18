@@ -45,27 +45,10 @@ services:
     networks:
       - app-network
 
-  mumble:
-    image: mumblevoip/mumble-server:latest
-    container_name: mumble
-    restart: unless-stopped
-    ports:
-      - 64738:64738
-      - 64738:64738/udp
-    environment: 
-      - MUMBLE_SUPERUSER_PASSWORD=${MUMBLE_SUPERUSER_PASSWORD}
-      - MUMBLE_CONFIG_SERVER_PASSWORD=${MUMBLE_CONFIG_SERVER_PASSWORD}
-    volumes:
-      - mumble-data:/data
-    networks:
-      - app-network
-
 networks:
   app-network:
     driver: bridge
 
 volumes:
   web-root:
-    driver: local
-  mumble-data: 
     driver: local
