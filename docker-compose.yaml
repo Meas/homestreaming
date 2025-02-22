@@ -44,6 +44,18 @@ services:
       - TZ=${TZ}
     networks:
       - app-network
+  adguardhome:
+    image: adguard/adguardhome
+    container_name: adguard
+    restart: unless-stopped
+    ports:
+      - 53:53/tcp
+      - 53:53/udp
+    volumes:
+      - ./adguard/config:/opt/adguardhome/conf
+      - adguard-work-data:/opt/adguardhome/work
+    networks:
+      - app-network
 
 networks:
   app-network:
@@ -51,4 +63,6 @@ networks:
 
 volumes:
   web-root:
+    driver: local
+  adguard-work-data:
     driver: local

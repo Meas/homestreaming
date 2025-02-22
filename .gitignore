@@ -7,3 +7,6 @@ jellyfin/cache/*
 jellyfin/media/*
 
 nginx/certs/*
+
+adguard/config/*
+adguard/work/*
