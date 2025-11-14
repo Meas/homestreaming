@@ -6,6 +6,10 @@ jellyfin/config/*
 jellyfin/cache/*
 jellyfin/media/*
 
+seerr/config/*
+sonarr/config/*
+radarr/config/*
+
 nginx/certs/*
 
 adguard/config/*

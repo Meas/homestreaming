@@ -45,6 +45,22 @@ services:
       - TZ=${TZ}
     networks:
       - app-network
+
+  seerr:
+    image: seerr/seerr:sha-267450a #TODO double check tags when they get updated
+    init: true
+    container_name: seerr
+    restart: unless-stopped
+    environment:
+      - LOG_LEVEL=debug
+      - TZ={TZ}
+    ports:
+      - 5055:5055
+    volumes:
+      - ./seerr/config:/app/config
+      - ./seerr/next.config.js:/app/next.config.js
+    networks:
+      - app-network
   adguardhome:
     image: adguard/adguardhome
     container_name: adguard
@@ -55,6 +71,34 @@ services:
     volumes:
       - ./adguard/config:/opt/adguardhome/conf
       - adguard-work-data:/opt/adguardhome/work
+    networks:
+      - app-network
+
+  sonarr:
+    image: ghcr.io/hotio/sonarr
+    container_name: sonarr
+    restart: unless-stopped
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=${TZ}
+    volumes:
+      - ./sonarr/config/:/config
+      - ${JELLYFIN_MEDIA_PATH}/shows:/data
+    networks:
+      - app-network
+
+  radarr:
+    image: ghcr.io/hotio/radarr
+    container_name: radarr
+    restart: unless-stopped
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=${TZ}
+    volumes:
+      - ./radarr/config/:/config
+      - ${JELLYFIN_MEDIA_PATH}/movies:/data
     networks:
       - app-network
 
