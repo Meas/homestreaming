@@ -52,6 +52,8 @@ services:
     container_name: seerr
     restart: unless-stopped
     environment:
+      - PUID=1000
+      - PGID=1000
       - LOG_LEVEL=debug
       - TZ={TZ}
     volumes:
