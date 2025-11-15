@@ -29,7 +29,7 @@ services:
       - TORRENTING_PORT=${QBITTORRENT_TORRENTING_PORT}
     volumes:
       - ${QBITTORRENT_CONFIG_PATH}:/config
-      - ${QBITTORRENT_DOWNLOADS_PATH}:/downloads #optional
+      - ${QBITTORRENT_DOWNLOADS_PATH}:/downloads
     networks:
       - app-network
 
@@ -55,11 +55,8 @@ services:
     environment:
       - LOG_LEVEL=debug
       - TZ={TZ}
-    ports:
-      - 5055:5055
     volumes:
       - ./seerr/config:/app/config
-     # - ./seerr/next.config.js:/app/next.config.js
     networks:
       - app-network
   adguardhome:
@@ -85,6 +82,7 @@ services:
       - TZ=${TZ}
     volumes:
       - ./sonarr/config/:/config
+      - ${QBITTORRENT_DOWNLOADS_PATH}:/downloads
       - ${JELLYFIN_MEDIA_PATH}/shows:/data
     networks:
       - app-network
@@ -99,7 +97,30 @@ services:
       - TZ=${TZ}
     volumes:
       - ./radarr/config/:/config
+      - ${QBITTORRENT_DOWNLOADS_PATH}:/downloads
       - ${JELLYFIN_MEDIA_PATH}/movies:/data
+    networks:
+      - app-network
+  prowlarr:
+    image: ghcr.io/hotio/prowlarr
+    container_name: prowlarr
+    restart: unless-stopped
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=${TZ}
+    volumes:
+      - ./prowlarr/config:/config
+    networks:
+      - app-network
+
+  flaresolverr:
+    image: ghcr.io/flaresolverr/flaresolverr:latest
+    container_name: flaresolverr
+    restart: unless-stopped
+    environment:
+      - LOG_LEVEL=info
+      - TZ=${TZ}
     networks:
       - app-network
 
