@@ -47,7 +47,7 @@ services:
       - app-network
 
   seerr:
-    image: seerr/seerr:sha-267450a #TODO double check tags when they get updated
+    image: seerr/seerr:sha-c5fc31c #TODO double check tags when they get updated
     init: true
     container_name: seerr
     restart: unless-stopped
