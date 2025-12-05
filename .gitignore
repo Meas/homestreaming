@@ -9,6 +9,7 @@ jellyfin/media/*
 seerr/config/*
 sonarr/config/*
 radarr/config/*
+lidarr/config/*
 prowlarr/config/*
 
 nginx/certs/*

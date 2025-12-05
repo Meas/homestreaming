@@ -103,6 +103,20 @@ services:
       - ${JELLYFIN_MEDIA_PATH}/videos/movies:/data
     networks:
       - app-network
+  lidarr:
+    image: ghcr.io/hotio/lidarr
+    container_name: lidarr
+    restart: unless-stopped
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=${TZ}
+    volumes:
+      - ./lidarr/config/:/config
+      - ${QBITTORRENT_DOWNLOADS_PATH}:/downloads
+      - ${JELLYFIN_MEDIA_PATH}/music:/data
+    networks:
+      - app-network
   prowlarr:
     image: ghcr.io/hotio/prowlarr
     container_name: prowlarr
