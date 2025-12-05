@@ -85,7 +85,7 @@ services:
     volumes:
       - ./sonarr/config/:/config
       - ${QBITTORRENT_DOWNLOADS_PATH}:/downloads
-      - ${JELLYFIN_MEDIA_PATH}/shows:/data
+      - ${JELLYFIN_MEDIA_PATH}/videos/shows:/data
     networks:
       - app-network
 
@@ -100,7 +100,7 @@ services:
     volumes:
       - ./radarr/config/:/config
       - ${QBITTORRENT_DOWNLOADS_PATH}:/downloads
-      - ${JELLYFIN_MEDIA_PATH}/movies:/data
+      - ${JELLYFIN_MEDIA_PATH}/videos/movies:/data
     networks:
       - app-network
   prowlarr:
