@@ -157,14 +157,14 @@ services:
       - app-network
 
   soularr:
-    image: mrusse08/soularr:latest
+    image: ghcr.io/mrusse/soularr:dev
     container_name: soularr
     hostname: soularr
     restart: unless-stopped
     user: 1000:1000
     environment:
       - TZ=ETC/UTC
-      - SCRIPT_INTERVAL=30
+      - SCRIPT_INTERVAL=300
     volumes:
       - ${QBITTORRENT_DOWNLOADS_PATH}/slskd/downloads:/downloads
       - ./soularr/config:/data
