@@ -99,7 +99,7 @@ services:
       - TZ=${TZ}
     volumes:
       - ./radarr/config/:/config
-      - ${QBITTORRENT_DOWNLOADS_PATH}/downloads-all
+      - ${QBITTORRENT_DOWNLOADS_PATH}:/downloads-all
       - ${QBITTORRENT_DOWNLOADS_PATH}/slskd/downloads:/downloads
       - ${JELLYFIN_MEDIA_PATH}/videos/movies:/data
     networks:
