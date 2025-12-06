@@ -114,6 +114,7 @@ services:
     volumes:
       - ./lidarr/config/:/config
       - ${QBITTORRENT_DOWNLOADS_PATH}:/downloads
+      - ${QBITTORRENT_DOWNLOADS_PATH}/slskd/downloads:/app/downloads
       - ${JELLYFIN_MEDIA_PATH}/music:/data
     networks:
       - app-network
