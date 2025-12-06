@@ -117,6 +117,22 @@ services:
       - ${JELLYFIN_MEDIA_PATH}/music:/data
     networks:
       - app-network
+  slskd:
+    image: slskd/slskd
+    container_name: slskd
+    hostname: slskd
+    restart: unless-stopped
+    user: 1000:1000
+    environment:
+      - TZ=ETC/UTC
+      - SLSKD_REMOTE_CONFIGURATION=true
+    volumes:
+      - ./slskd/config:/app
+      - ${JELLYFIN_MEDIA_PATH}:/data
+      - ${QBITTORRENT_DOWNLOADS_PATH}/slskd/incomplete:/app/incomplete
+      - ${QBITTORRENT_DOWNLOADS_PATH}/slskd/downloads:/app/downloads
+    networks:
+      - app-network
   prowlarr:
     image: ghcr.io/hotio/prowlarr
     container_name: prowlarr
@@ -139,6 +155,24 @@ services:
       - TZ=${TZ}
     networks:
       - app-network
+
+  soularr:
+    image: mrusse08/soularr:latest
+    container_name: soularr
+    hostname: soularr
+    restart: unless-stopped
+    user: 1000:1000
+    environment:
+      - TZ=ETC/UTC
+      - SCRIPT_INTERVAL=30
+    volumes:
+      - ${QBITTORRENT_DOWNLOADS_PATH}/slskd/downloads:/downloads
+      - ./soularr/config:/data
+    networks:
+      - app-network
+    depends_on:
+      - lidarr
+      - slskd
 
 networks:
   app-network:

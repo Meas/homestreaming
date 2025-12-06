@@ -11,6 +11,8 @@ sonarr/config/*
 radarr/config/*
 lidarr/config/*
 prowlarr/config/*
+slskd/config/*
+soularr/config/*
 
 nginx/certs/*
 
