@@ -99,8 +99,7 @@ services:
       - TZ=${TZ}
     volumes:
       - ./radarr/config/:/config
-      - ${QBITTORRENT_DOWNLOADS_PATH}:/downloads-all
-      - ${QBITTORRENT_DOWNLOADS_PATH}/slskd/downloads:/downloads
+      - ${QBITTORRENT_DOWNLOADS_PATH}:/downloads
       - ${JELLYFIN_MEDIA_PATH}/videos/movies:/data
     networks:
       - app-network
@@ -114,7 +113,8 @@ services:
       - TZ=${TZ}
     volumes:
       - ./lidarr/config/:/config
-      - ${QBITTORRENT_DOWNLOADS_PATH}:/downloads
+      - ${QBITTORRENT_DOWNLOADS_PATH}:/downloads-all
+      - ${QBITTORRENT_DOWNLOADS_PATH}/slskd/downloads:/downloads
       - ${JELLYFIN_MEDIA_PATH}/music:/data
     networks:
       - app-network
