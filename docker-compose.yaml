@@ -124,7 +124,7 @@ services:
     restart: unless-stopped
     user: 1000:1000
     environment:
-      - TZ=ETC/UTC
+      - TZ=${TZ}
       - SLSKD_REMOTE_CONFIGURATION=true
     volumes:
       - ./slskd/config:/app
@@ -163,7 +163,7 @@ services:
     restart: unless-stopped
     user: 1000:1000
     environment:
-      - TZ=ETC/UTC
+      - TZ=${TZ}
       - SCRIPT_INTERVAL=300
     volumes:
       - ${QBITTORRENT_DOWNLOADS_PATH}/slskd/downloads:/downloads
