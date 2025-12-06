@@ -126,6 +126,7 @@ services:
     environment:
       - TZ=${TZ}
       - SLSKD_REMOTE_CONFIGURATION=true
+      - SLSKD_UMASK=000
     volumes:
       - ./slskd/config:/app
       - ${JELLYFIN_MEDIA_PATH}:/data
