@@ -1,17 +1,17 @@
-# 🏠 Self-Hosted Media Server Stack
+# 🏠 Self-Hosted Streaming Stack
 
 <div align="center">
 
-![Media Stack](https://img.shields.io/badge/Media-Server-blue?style=for-the-badge)
+![Stream Stack](https://img.shields.io/badge/Streaming-Stack-blue?style=for-the-badge)
 ![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?style=for-the-badge&logo=docker)
 ![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)
 
-[![GitHub Repo stars](https://img.shields.io/github/stars/user/media-stack?style=social)](https://github.com/yourusername/media-stack)
-[![GitHub forks](https://img.shields.io/github/forks/user/media-stack?style=social)](https://github.com/yourusername/media-stack)
+[![GitHub Repo stars](https://img.shields.io/github/stars/meas/homestreaming?style=social)](https://github.com/meas/homestreaming)
+[![GitHub forks](https://img.shields.io/github/forks/meas/homestreaming?style=social)](https://github.com/meas/homestreaming)
 
 **A complete self-hosted entertainment ecosystem powered by Docker**
 
-[Features](#features) • [Architecture](#architecture) • [Quick Start](#quick-start) • [Configuration](#configuration) • [Services](#services) • [Contributing](#contributing)
+[Features](#features) • [Architecture](#architecture) • [Quick Start](#quick-start) • [Configuration](#configuration) • [Services](#services) • [Accessing Services](#accessing-services)
 
 </div>
 
@@ -19,7 +19,7 @@
 
 ## 📖 Overview
 
-This project provides a fully-featured, self-hosted media server stack that brings the convenience of streaming services to your own hardware. Automate the download and organization of your media library with a powerful combination of applications working together seamlessly.
+This project provides a fully-featured, self-hosted media server stack that brings the convenience of streaming services to your own hardware. All services are proxied through a central Nginx instance with consistent paths, making it work seamlessly with **Tailscale** and other VPN solutions that don't support native subdomain routing.
 
 ### ✨ Why Self-Host?
 
@@ -34,36 +34,36 @@ This project provides a fully-featured, self-hosted media server stack that brin
 ## 🏗️ Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                        NGINX                                 │
-│              (Reverse Proxy + SSL Termination)               │
-└─────────────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────────────────┐
+│                             Nginx                                       │
+│   /jf → Jellyfin    /sonarr → Sonarr    /radarr → Radarr    /lidarr →  │
+│   /prowlarr → Prowlarr  /qbt → Qbittorrent  /ag → AdGuard  /seerr →   │
+│   /slskd → slskd                                            (All SSL) │
+└────────────────────────────────────────────────────────────────────────┘
                             │
-          ┌─────────────────┼─────────────────┐
-          │                 │                 │
-    ┌─────▼─────┐      ┌────▼─────┐      ┌────▼─────┐
-    │ Jellyfin  │      │  Seerr   │      │ AdGuard  │
-    │ (Streaming)│    │ (Discovery)│    │ (DNS/AdBlock)│
-    └───────────┘      └───────────┘      └───────────┘
-          │                                            │
-          │                ┌───────────────────────────┘
-          │                │
-          │    ┌───────────▼─────────────┐    ┌──────────▼─────────────┐
-          └────►│  Prowlarr (Indexers)  │────►│   Qbittorrent (DL)     │
-                 └───────────────────────┘    └───────────────────────┘
-                                                │      │
-                                    ┌───────────┼───────────┐
-                                    │           │           │
-                              ┌─────▼─────┐ ┌─▼─────┐ ┌──▼──────┐
-                              │  Sonarr   │ │ Radarr│ │  Lidarr │
-                              │(TV Series)│ │(Movies)│ │(Music)  │
-                              └───────────┘ └───────┘ └─────────┘
-                                                │
-                                  ┌─────────────▼──────────────┐
-                                  │        Soulseek            │
-                                  │  (slskd + soularr)         │
-                                  │    (Community Downloads)   │
-                                  └────────────────────────────┘
+        ┌───────────────────┼───────────────────┐
+        │                   │                   │
+    ┌───▼────┐         ┌───▼───┐           ┌──▼──────┐
+    │Jellyfin│         │Sonarr │           │ Radarr  │
+    └────────┘         └───────┘           └─────────┘
+        │                 │                   │
+        └─────────────────┼───────────────────┘
+                          │
+                    ┌─────▼─────┐
+                    │ Qbittorrent│
+                    └─────┬─────┘
+                          │
+        ┌─────────────────┼─────────────────┐
+        │                 │                 │
+    ┌───▼────┐         ┌──▼───┐         ┌──▼──────┐
+    │Sonarr  │         │Radarr│         │Lidarr   │
+    │Lidarr  │         │Sonarr│         │Prowlarr │
+    └────────┘         └──────┘         └─────────┘
+                          │
+                  ┌───────▼───────┐
+                  │    slskd      │
+                  │    soularr    │
+                  └───────────────┘
 ```
 
 ---
@@ -77,8 +77,8 @@ This project provides a fully-featured, self-hosted media server stack that brin
 | 🔍 **Smart Discovery** | Seerr suggests content based on your Jellyfin library |
 | 📡 **Indexer Aggregation** | Prowlarr manages multiple indexer APIs from one place |
 | 🛡️ **Privacy Shield** | AdGuard Home blocks ads and trackers at DNS level |
-| 🔐 **Secure Access** | Nginx reverse proxy with optional SSL |
-| 🌐 **Bypass Protection** | FlareSolverr handles cloudflare-protected sites |
+| 🔐 **Secure Access** | Unified SSL/TLS encryption for all services |
+| 🌐 **VPN Friendly** | Path-based routing works with Tailscale, ZeroTier, etc. |
 | ⚡ **Containerized** | All services run in Docker for easy deployment |
 
 ---
@@ -97,8 +97,8 @@ This project provides a fully-featured, self-hosted media server stack that brin
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/yourusername/media-stack.git
-cd media-stack
+git clone https://github.com/meas/homestreaming.git
+cd homestreaming
 ```
 
 ### 2. Configure environment variables
@@ -114,7 +114,7 @@ Edit `.env` with your preferences:
 ```bash
 # Example configuration
 JELLYFIN_MEDIA_PATH=/path/to/your/media
-NGINX_HTTPS_PORT=443
+NGINX_CONFIG_NAME=https # or http-only
 TZ=Europe/Your_City
 ```
 
@@ -124,21 +124,73 @@ TZ=Europe/Your_City
 docker compose up -d
 ```
 
-### 4. Access your services
+---
 
-- **Jellyfin**: http://localhost:8080
-- **Sonarr**: http://localhost:8989
-- **Radarr**: http://localhost:7878
-- **Lidarr**: http://localhost:8686
-- **Qbittorrent**: http://localhost:8081
-- **AdGuard**: http://localhost:3000
+## 🔒 HTTPS Configuration
 
-### 5. Setup services
+The stack supports both HTTP and HTTPS modes. Choose your configuration:
 
-1. **Jellyfin** - Add your media files to the configured path
-2. **Sonarr/Radarr/Lidarr** - Add your indexer API keys and configure search preferences
-3. **Prowlarr** - Add your preferred indexer accounts
-4. **Seerr** - Configure to connect with your Jellyfin instance
+### HTTP Mode (Default)
+
+Use this for development or when you don't need encryption:
+
+```bash
+NGINX_CONFIG_NAME=http-only
+docker compose up -d
+```
+
+Access services via `http://your-hostname/service-name`
+
+### HTTPS Mode
+
+Use this for production with SSL encryption:
+
+```bash
+NGINX_CONFIG_NAME=https
+docker compose up -d
+```
+
+You need to provide SSL certificates:
+
+**Self-signed certificates (for testing):**
+```bash
+mkdir -p nginx/certs
+openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+  -keyout nginx/certs/default.key \
+  -out nginx/certs/default.crt
+```
+
+**Let's Encrypt (for production):**
+```bash
+# Generate certificate and configure nginx
+docker compose up -d
+# Then use certbot to obtain SSL certificates
+```
+
+**Note:** SSL certificates are mapped from `./nginx/certs/` to `/etc/ssl/certs/` in the nginx container.
+
+---
+
+## 🔗 Accessing Services
+
+All services are accessible via path-based routing through Nginx. This setup ensures compatibility with Tailscale, ZeroTier, and other VPN solutions that don't support native subdomain resolution.
+
+| Service | Path | Description |
+|---------|------|-------------|
+| Jellyfin | `/jf/` | Media streaming server |
+| Sonarr | `/sonarr/` | TV series automation |
+| Radarr | `/radarr/` | Movie automation |
+| Lidarr | `/lidarr/` | Music automation |
+| Prowlarr | `/prowlarr/` | Indexer aggregation |
+| Qbittorrent | `/qbt/` | Torrent client |
+| AdGuard | `/ag/` | DNS and ad-blocking |
+| Seerr | `/seerr/` | Content discovery |
+| slskd | `/slskd/` | Soulseek client |
+
+**Examples:**
+- Jellyfin: `http://localhost/jf/` or `http://your-tailscale-ip/jf/`
+- Sonarr: `http://localhost/sonarr/`
+- Seerr: `http://localhost/seerr/`
 
 ---
 
@@ -150,8 +202,7 @@ docker compose up -d
 |----------|-------------|---------|
 | `JELLYFIN_MEDIA_PATH` | Path to your media library | - |
 | `QBITTORRENT_DOWNLOADS_PATH` | Path for downloaded torrents | - |
-| `NGINX_HOST_PORT` | HTTP port for Nginx | 80 |
-| `NGINX_HTTPS_PORT` | HTTPS port for Nginx | 443 |
+| `NGINX_CONFIG_NAME` | Nginx configuration mode | `http-only` |
 | `TZ` | Timezone | Etc/CET |
 
 ### Volume Mappings
@@ -173,62 +224,62 @@ docker compose up -d
 ### 🎬 Jellyfin
 Open-source media server for streaming your personal media collection.
 
-**Services Provided By:** jellyfin/jellyfin
+**Docs:** https://jellyfin.org/docs/
 
 ### 📺 Seerr
 Automated content discovery service that recommends movies and TV shows based on your Jellyfin library.
 
-**Services Provided By:** seerr/seerr
+**Docs:** https://gh.crunchyroll.com/docs/api/seerr/
 
 ### 🔎 Prowlarr
 Indexer aggregation service that manages API keys for multiple torrent and usenet indexers.
 
-**Services Provided By:** ghcr.io/hotio/prowlarr
+**Docs:** https://wiki.prowlarr.com/
 
 ### ⬇️ Qbittorrent
 Full-featured, open-source BitTorrent client.
 
-**Services Provided By:** lscr.io/linuxserver/qbittorrent
+**Docs:** https://www.qbittorrent.org/
 
 ### 📺 Sonarr
 Automated TV series download and management tool.
 
-**Services Provided By:** ghcr.io/hotio/sonarr
+**Docs:** https://sonarr.tv/
 
 ### 🎥 Radarr
 Automated movie download and management tool.
 
-**Services Provided By:** ghcr.io/hotio/radarr
+**Docs:** https://radarr.video/
 
 ### 🎵 Lidarr
 Automated music download and management tool.
 
-**Services Provided By:** ghcr.io/hotio/lidarr
+**Docs:** https://lidarr.video/
 
 ### 👾 slskd
 Modern Soulseek client with remote configuration support.
 
-**Services Provided By:** slskd/slskd
+**Docs:** https://slskd.org/
 
 ### 🤖 soularr
 Automated downloader for Soulseek using Lidarr data for metadata matching.
 
-**Services Provided By:** ghcr.io/mrusse/soularr
+**Docs:** https://github.com/mrusse/soularr
 
 ### 🛡️ AdGuard Home
 Network-wide ad blocking DNS server with web interface.
 
-**Services Provided By:** adguard/adguardhome
+**Docs:** https://github.com/AdguardTeam/AdGuardHome
 
 ### 🔄 Nginx
 High-performance web server and reverse proxy.
 
-**Services Provided By:** nginx:mainline-alpine
+**Docs:** https://nginx.org/en/docs/
 
 ### 🧩 FlareSolverr
 Proxy server to bypass cloudflare protection for scraping.
 
-**Services Provided By:** ghcr.io/flaresolverr/flaresolverr
+**Docs:** https://docs.flaresolverr.org/
 
 ---
 
@@ -283,7 +334,7 @@ docker compose restart sonarr
 
 # Access service console
 docker compose exec sonarr bash
-```
+````
 
 ### Volume Management
 
@@ -303,9 +354,7 @@ tar -czf config-backup.tar.gz ./sonarr ./radarr ./lidarr ./prowlarr
 
 Edit `./nginx/conf.d/http-only.conf` or `./nginx/conf.d/https.conf` to customize reverse proxy rules.
 
-### SSL Certificates
-
-Generate self-signed certificates or use Let's Encrypt with Certbot for production use.
+Edit `./nginx/includes/proxy_services.conf` to modify service routing paths.
 
 ---
 
@@ -342,18 +391,6 @@ This project is open source and available under the [MIT License](LICENSE).
 
 ---
 
-## 🤝 Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
----
-
 ## 🙏 Acknowledgments
 
 - [Jellyfin](https://jellyfin.org) - The media server foundation
@@ -366,14 +403,14 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## 📧 Support
 
-- 🐛 [Report an Issue](https://github.com/yourusername/media-stack/issues)
-- 💬 [Discussions](https://github.com/yourusername/media-stack/discussions)
+- 🐛 [Report an Issue](https://github.com/meas/homestreaming/issues)
+- 💬 [Discussions](https://github.com/meas/homestreaming/discussions)
 - 📧 [Contact](mailto:your.email@example.com)
 
 <div align="center">
 
 **Made with ❤️ and Docker**
 
-[⬆ Back to Top](#-self-hosted-media-server-stack)
+[⬆ Back to Top](#-self-hosted-streaming-stack)
 
 </div>
