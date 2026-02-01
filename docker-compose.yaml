@@ -21,8 +21,8 @@ services:
     container_name: qbittorrent
     restart: unless-stopped
     environment:
-      - PUID=${QBITTORRENT_PUID-1000}
-      - PGID=${QBITTORRENT_PGID-1000}
+      - PUID=${PUID-1000}
+      - PGID=${PGID-1000}
       - TZ=${TZ}
       - WEBUI_PORT=${QBITTORRENT_WEBUI_PORT}
       - TORRENTING_PORT=${QBITTORRENT_TORRENTING_PORT}
@@ -36,7 +36,7 @@ services:
     image: jellyfin/jellyfin
     container_name: jellyfin
     restart: unless-stopped
-    user: ${JELLYFIN_PUID}:${JELLYFIN_PGID}
+    user: ${PUID-1000}:${PGID-1000}
     volumes:
       - ${JELLYFIN_CONFIG_PATH}:/config
       - ${JELLYFIN_CACHE_PATH}:/cache
@@ -52,13 +52,12 @@ services:
     container_name: seerr
     restart: unless-stopped
     environment:
-      - PUID=1000
-      - PGID=1000
-      - LOG_LEVEL=debug
-      - TZ={TZ}
+      - PUID=${PUID-1000}
+      - PGID=${PGID-1000}
+      - LOG_LEVEL=info
+      - TZ=${TZ}
     volumes:
       - ./seerr/config:/app/config
-    #  - ./seerr/next.config.js:/app/next.config.js
     networks:
       - app-network
   adguardhome:
@@ -79,8 +78,8 @@ services:
     container_name: sonarr
     restart: unless-stopped
     environment:
-      - PUID=1000
-      - PGID=1000
+      - PUID=${PUID-1000}
+      - PGID=${PGID-1000}
       - TZ=${TZ}
     volumes:
       - ./sonarr/config/:/config
@@ -94,8 +93,8 @@ services:
     container_name: radarr
     restart: unless-stopped
     environment:
-      - PUID=1000
-      - PGID=1000
+      - PUID=${PUID-1000}
+      - PGID=${PGID-1000}
       - TZ=${TZ}
     volumes:
       - ./radarr/config/:/config
@@ -108,8 +107,8 @@ services:
     container_name: lidarr
     restart: unless-stopped
     environment:
-      - PUID=1000
-      - PGID=1000
+      - PUID=${PUID-1000}
+      - PGID=${PGID-1000}
       - TZ=${TZ}
     volumes:
       - ./lidarr/config/:/config
@@ -124,7 +123,7 @@ services:
     profiles:
       - soularr-tools
     restart: unless-stopped
-    user: 1000:1000
+    user: ${PUID-1000}:${PGID-1000}
     environment:
       - TZ=${TZ}
       - SLSKD_REMOTE_CONFIGURATION=true
@@ -141,8 +140,8 @@ services:
     container_name: prowlarr
     restart: unless-stopped
     environment:
-      - PUID=1000
-      - PGID=1000
+      - PUID=${PUID-1000}
+      - PGID=${PGID-1000}
       - TZ=${TZ}
     volumes:
       - ./prowlarr/config:/config
@@ -166,7 +165,7 @@ services:
     profiles:
       - soularr-tools
     restart: unless-stopped
-    user: 1000:1000
+    user: ${PUID-1000}:${PGID-1000}
     environment:
       - TZ=${TZ}
       - SCRIPT_INTERVAL=300
