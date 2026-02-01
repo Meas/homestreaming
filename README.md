@@ -6,9 +6,6 @@
 ![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?style=for-the-badge&logo=docker)
 ![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)
 
-[![GitHub Repo stars](https://img.shields.io/github/stars/meas/homestreaming?style=social)](https://github.com/meas/homestreaming)
-[![GitHub forks](https://img.shields.io/github/forks/meas/homestreaming?style=social)](https://github.com/meas/homestreaming)
-
 **A complete self-hosted entertainment ecosystem powered by Docker**
 
 [Features](#features) • [Architecture](#architecture) • [Quick Start](#quick-start) • [Configuration](#configuration) • [Services](#services) • [Accessing Services](#accessing-services) • [Initial Setup Guide](#-initial-setup-guide) • [Volume Paths](#-volume-paths--requirements) • [Port Requirements](#-port-requirements) • [Maintenance](#-maintenance) • [Troubleshooting](#-troubleshooting) • [Legal Disclaimer](#-legal-disclaimer) • [Initial Setup Guide](#-initial-setup-guide) • [Volume Paths](#-volume-paths--requirements) • [Port Requirements](#-port-requirements) • [Maintenance](#-maintenance)
