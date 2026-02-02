@@ -33,7 +33,7 @@ This project provides a fully-featured, self-hosted media server stack that brin
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                           Nginx Reverse Proxy                               │
-│              Path-Based Routing (All Services via /service/)               │
+│              Path-Based Routing (All Services via /service/)                │
 └─────────────────────────────────────────────────────────────────────────────┘
                                     │
                     ┌────────────────┼────────────────┐
