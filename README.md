@@ -8,7 +8,7 @@
 
 **A complete self-hosted entertainment ecosystem powered by Docker**
 
-[Features](#features) • [Architecture](#architecture) • [Quick Start](#quick-start) • [Configuration](#configuration) • [Services](#services) • [Accessing Services](#accessing-services) • [Initial Setup Guide](#-initial-setup-guide) • [Volume Paths](#-volume-paths--requirements) • [Port Requirements](#-port-requirements) • [Maintenance](#-maintenance) • [Troubleshooting](#-troubleshooting) • [Legal Disclaimer](#-legal-disclaimer) • [Initial Setup Guide](#-initial-setup-guide) • [Volume Paths](#-volume-paths--requirements) • [Port Requirements](#-port-requirements) • [Maintenance](#-maintenance)
+[Features](#features) • [Architecture](#architecture) • [Quick Start](#quick-start) • [Configuration](#configuration) • [Services](#services) • [Accessing Services](#accessing-services) • [Initial Setup Guide](#-initial-setup-guide) • [Volume Paths](#-volume-paths--requirements) • [Port Requirements](#-port-requirements) • [Troubleshooting](#-troubleshooting) • [Legal Disclaimer](#-legal-disclaimer)
 
 </div>
 
@@ -228,7 +228,10 @@ All services are accessible via path-based routing through Nginx. This setup ens
 |----------|-------------|---------|
 | `JELLYFIN_MEDIA_PATH` | Path to your media library | - |
 | `QBITTORRENT_DOWNLOADS_PATH` | Path for downloaded torrents | - |
+| `QBITTORRENT_WEBUI_PORT` | Qbittorrent WebUI port | 8080 |
+| `QBITTORRENT_TORRENTING_PORT` | Qbittorrent torrenting port | 12854 |
 | `NGINX_CONFIG_NAME` | Nginx configuration mode | `http-only` |
+| `NGINX_PORT` | Nginx HTTP port | 80 |
 | `TZ` | Timezone | Etc/CET |
 
 ### Volume Mappings
@@ -417,6 +420,8 @@ The following ports must be available on your system:
 | 80 | Nginx | TCP | HTTP default |
 | 443 | Nginx | TCP | HTTPS default |
 | 53 | AdGuard Home | TCP/UDP | DNS server |
+| 5000 | slskd | TCP | WebUI |
+| 5030 | slskd | TCP | Remote configuration |
 | 8080 | Qbittorrent WebUI | TCP | Configure via `QBITTORRENT_WEBUI_PORT` |
 | 12854 | Qbittorrent | TCP | Configure via `QBITTORRENT_TORRENTING_PORT` |
 
@@ -541,6 +546,18 @@ docker compose down -v
 2. Verify service URLs in docker-compose.yaml
 3. Check nginx logs: `docker compose logs nginx`
 
+### slskd/soularr Not Responding
+
+1. Check if soularr-tools profile is active: `docker compose ps`
+2. Verify slskd config: `docker compose exec slskd cat /config/slskd.config.yml`
+3. Check soularr logs: `docker compose --profile soularr-tools logs soularr`
+
+### Soulseek Content Not Downloading
+
+1. Verify slskd user is logged in
+2. Check soularr matching configuration
+3. Verify Lidarr metadata is populated
+
 ---
 
 ## 📄 License
@@ -569,11 +586,12 @@ This project is open source and available under the [MIT License](LICENSE).
 
 ## ⚖️ Legal Disclaimer
 
-This project uses automation tools (Sonarr, Radarr, Lidarr, Prowlarr) to download content you own or have legally obtained rights to. Indexers may provide access to copyrighted material. Users are responsible for ensuring they have the legal right to download and store such content.
+This project uses automation tools (Sonarr, Radarr, Lidarr, Prowlarr, slskd, soularr) to download content you own or have legally obtained rights to. Indexers may provide access to copyrighted material. Users are responsible for ensuring they have the legal right to download and store such content.
 
 - Respect copyright laws in your country/region
 - Only use content you own or have permission to use
 - Prowlarr indexers should be configured with accounts you own
+- slskd/soularr content sharing should be in accordance with Soulseek's terms
 - The authors of this project are not responsible for any misuse
 
 ---
