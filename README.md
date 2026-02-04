@@ -8,7 +8,7 @@
 
 **A complete self-hosted entertainment ecosystem powered by Docker**
 
-[Features](#features) • [Architecture](#architecture) • [Quick Start](#quick-start) • [Configuration](#configuration) • [Services](#services) • [Accessing Services](#accessing-services) • [Initial Setup Guide](#-initial-setup-guide) • [Volume Paths](#-volume-paths--requirements) • [Port Requirements](#-port-requirements) • [Troubleshooting](#-troubleshooting) • [Legal Disclaimer](#-legal-disclaimer)
+[Features](#features) • [Architecture](#architecture) • [Quick Start](#quick-start) • [Configuration](#configuration) • [Services](#services) • [Accessing Services](#accessing-services) • [Initial Setup Guide](#initial-setup-guide) • [Volume Paths](#volume-paths--requirements) • [Port Requirements](#port-requirements) • [Troubleshooting](#troubleshooting) • [Legal Disclaimer](#-egal-disclaimer)
 
 </div>
 
