@@ -375,10 +375,32 @@ Additional resources for Sonarr, Radarr, and Lidarr:
 1. Access each service and create an account
 2. Add indexers from Prowlarr (Settings > Connect > Indexers)
 3. Add your media server connection (Jellyfin)
-4. Set up quality profiles and download locations:
-   - **Root folder** — Sonarr: `/data/media/videos/shows`, Radarr: `/data/media/videos/movies`, Lidarr: `/data/media/music`
-   - **Remote path mapping** (Settings > Download Clients > Remote Path Mappings) — Remote: `/downloads`, Local: `/data/downloads`
-5. Search for content to verify automation works
+4. Add the download client (Settings > Download Clients > +):
+   - Type: qBittorrent, Host: `qbittorrent`, Port: `8080`
+5. Add the remote path mapping (Settings > Download Clients > Remote Path Mappings > +):
+
+   | Field | Value |
+   |-------|-------|
+   | Host | `qbittorrent` |
+   | Remote Path | `/downloads` |
+   | Local Path | `/data/downloads` |
+
+6. Add the root folder (Settings > Media Management > Root Folders):
+
+   | Service | Root Folder |
+   |---------|-------------|
+   | Sonarr | `/data/media/videos/shows` |
+   | Radarr | `/data/media/videos/movies` |
+   | Lidarr | `/data/media/music` |
+
+7. If migrating an existing setup, update root folders for all existing content via the bulk editor, then update collections/series/artists separately as they store their own root folder independently:
+
+   | Service | Bulk editor | Individual items | Root folder |
+   |---------|-------------|-----------------|-------------|
+   | Radarr | Movies > Movie Editor → select all → change Root Folder | Movies > Collections → edit each | `/data/media/videos/movies` |
+   | Sonarr | Series > Series Editor → select all → change Root Folder | Series > (each series) → edit | `/data/media/videos/shows` |
+   | Lidarr | Artist > Artist Editor → select all → change Root Folder | Artist > (each artist) → edit | `/data/media/music` |
+8. Search for content to verify automation works
 
 ### Step 4: Qbittorrent
 1. Access `http://your-hostname/qbt/` and create an account
@@ -565,6 +587,16 @@ docker compose down -v
 1. Check if soularr-tools profile is active: `docker compose ps`
 2. Verify slskd config: `docker compose exec slskd cat /app/slskd.config.yml`
 3. Check soularr logs: `docker compose --profile soularr-tools logs soularr`
+
+### "Missing root folder" after migrating volume paths
+
+Each service stores root folder paths on individual items separately from the global root folder setting. After a bulk root folder update, you must also update them individually:
+
+| Service | Where | Root folder |
+|---------|-------|-------------|
+| Radarr | Movies > Collections → edit each collection | `/data/media/videos/movies` |
+| Sonarr | Series > each series → edit | `/data/media/videos/shows` |
+| Lidarr | Artist > each artist → edit | `/data/media/music` |
 
 ### Soulseek Content Not Downloading
 
