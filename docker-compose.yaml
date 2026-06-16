@@ -28,7 +28,7 @@ services:
       - TORRENTING_PORT=${QBITTORRENT_TORRENTING_PORT}
     volumes:
       - ${QBITTORRENT_CONFIG_PATH}:/config
-      - ${QBITTORRENT_DOWNLOADS_PATH}:/downloads
+      - ${STORAGE_ROOT}/downloads:/downloads
     networks:
       - app-network
 
@@ -40,7 +40,7 @@ services:
     volumes:
       - ${JELLYFIN_CONFIG_PATH}:/config
       - ${JELLYFIN_CACHE_PATH}:/cache
-      - ${JELLYFIN_MEDIA_PATH}:/media
+      - ${STORAGE_ROOT}/media:/media
     environment:
       - TZ=${TZ}
     networks:
@@ -83,8 +83,7 @@ services:
       - TZ=${TZ}
     volumes:
       - ./sonarr/config/:/config
-      - ${QBITTORRENT_DOWNLOADS_PATH}:/downloads
-      - ${JELLYFIN_MEDIA_PATH}/videos/shows:/data
+      - ${STORAGE_ROOT}:/data
     networks:
       - app-network
 
@@ -98,8 +97,7 @@ services:
       - TZ=${TZ}
     volumes:
       - ./radarr/config/:/config
-      - ${QBITTORRENT_DOWNLOADS_PATH}:/downloads
-      - ${JELLYFIN_MEDIA_PATH}/videos/movies:/data
+      - ${STORAGE_ROOT}:/data
     networks:
       - app-network
   lidarr:
@@ -112,8 +110,7 @@ services:
       - TZ=${TZ}
     volumes:
       - ./lidarr/config/:/config
-      - ${QBITTORRENT_DOWNLOADS_PATH}:/downloads
-      - ${JELLYFIN_MEDIA_PATH}/music:/data
+      - ${STORAGE_ROOT}:/data
     networks:
       - app-network
   slskd:
@@ -130,9 +127,9 @@ services:
       - SLSKD_UMASK=000
     volumes:
       - ./slskd/config:/app
-      - ${JELLYFIN_MEDIA_PATH}:/data
-      - ${QBITTORRENT_DOWNLOADS_PATH}/slskd/incomplete:/incomplete
-      - ${QBITTORRENT_DOWNLOADS_PATH}/slskd/downloads:/downloads
+      - ${STORAGE_ROOT}/media:/data
+      - ${STORAGE_ROOT}/downloads/slskd/incomplete:/incomplete
+      - ${STORAGE_ROOT}/downloads/slskd/downloads:/downloads
     networks:
       - app-network
   prowlarr:
@@ -170,7 +167,7 @@ services:
       - TZ=${TZ}
       - SCRIPT_INTERVAL=300
     volumes:
-      - ${QBITTORRENT_DOWNLOADS_PATH}/slskd/downloads:/downloads
+      - ${STORAGE_ROOT}/downloads/slskd/downloads:/downloads
       - ./soularr/config:/data
     networks:
       - app-network

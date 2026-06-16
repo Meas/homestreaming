@@ -8,7 +8,7 @@
 
 **A complete self-hosted entertainment ecosystem powered by Docker**
 
-[Features](#-features) • [Architecture](#%EF%B8%8F-architecture) • [Quick Start](#-quick-start) • [Https Configuration](#-https-configuration) • [Services](#-services) • [Accessing Services](#-accessing-services) • [Initial Setup Guide](#-initial-setup-guide) • [Volume Paths](#-volume-paths--requirements) • [Port Requirements](#-port-requirements) • [Troubleshooting](#-troubleshooting) • [Legal Disclaimer](#%EF%B8%8F-legal-disclaimer)
+[Features](#-features) • [Architecture](#%EF%B8%8F-architecture) • [Quick Start](#-quick-start) • [HTTPS Configuration](#-https-configuration) • [Services](#-services) • [Accessing Services](#-accessing-services) • [Initial Setup Guide](#-initial-setup-guide) • [Volume Paths](#-volume-paths--requirements) • [Port Requirements](#-port-requirements) • [Troubleshooting](#-troubleshooting) • [Legal Disclaimer](#%EF%B8%8F-legal-disclaimer)
 
 </div>
 
@@ -139,7 +139,7 @@ Edit `.env` with your preferences:
 
 ```bash
 # Example configuration
-JELLYFIN_MEDIA_PATH=/path/to/your/media
+STORAGE_ROOT=/mnt/your-drive
 NGINX_CONFIG_NAME=https # or http-only
 TZ=Europe/Your_City
 ```
@@ -226,25 +226,27 @@ All services are accessible via path-based routing through Nginx. This setup ens
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `JELLYFIN_MEDIA_PATH` | Path to your media library | - |
-| `QBITTORRENT_DOWNLOADS_PATH` | Path for downloaded torrents | - |
+| `STORAGE_ROOT` | Root of your storage drive — all downloads and media live here | - |
 | `QBITTORRENT_WEBUI_PORT` | Qbittorrent WebUI port | 8080 |
 | `QBITTORRENT_TORRENTING_PORT` | Qbittorrent torrenting port | 12854 |
 | `NGINX_CONFIG_NAME` | Nginx configuration mode | `http-only` |
-| `NGINX_PORT` | Nginx HTTP port | 80 |
-| `TZ` | Timezone | Etc/CET |
+| `NGINX_HOST_PORT` | Nginx HTTP port | 80 |
+| `NGINX_HTTPS_PORT` | Nginx HTTPS port | 443 |
+| `TZ` | Timezone | - |
 
 ### Volume Mappings
 
 | Service | Configuration Volume | Data Volume |
 |---------|---------------------|-------------|
-| Jellyfin | `./jellyfin/config` | `./jellyfin/media` |
-| qBittorrent | `./qbittorrent/config` | `./qbittorrent/downloads` |
-| Sonarr | `./sonarr/config` | Downloads + Series Library |
-| Radarr | `./radarr/config` | Downloads + Movies Library |
-| Lidarr | `./lidarr/config` | Downloads + Music Library |
-| slskd | `./slskd/config` | All Media + Incomplete/Downloads |
-| soularr | `./soularr/config` | Downloads Path |
+| Jellyfin | `./jellyfin/config` | `$STORAGE_ROOT/media` → `/media` |
+| qBittorrent | `./qbittorrent/config` | `$STORAGE_ROOT/downloads` → `/downloads` |
+| Sonarr | `./sonarr/config` | `$STORAGE_ROOT` → `/data` |
+| Radarr | `./radarr/config` | `$STORAGE_ROOT` → `/data` |
+| Lidarr | `./lidarr/config` | `$STORAGE_ROOT` → `/data` |
+| slskd | `./slskd/config` | `$STORAGE_ROOT/media` → `/data`, `$STORAGE_ROOT/downloads/slskd/` → `/downloads` + `/incomplete` |
+| soularr | `./soularr/config` | `$STORAGE_ROOT/downloads/slskd/downloads` → `/downloads` |
+
+> **Hardlink note:** Sonarr, Radarr, and Lidarr mount `STORAGE_ROOT` as a single `/data` volume so that `/data/downloads` and `/data/media` share the same filesystem mount point. This is required for instant hardlinking — without it, files are copied instead.
 
 ---
 
@@ -356,7 +358,10 @@ Additional resources for Sonarr, Radarr, and Lidarr:
 
 ### Step 1: Jellyfin
 1. Access `http://your-hostname/jf/` and complete the initial setup wizard
-2. Add your media libraries (Movies, Shows, Music)
+2. Add your media libraries pointing to the paths inside the container:
+   - Movies: `/media/videos/movies`
+   - TV Shows: `/media/videos/shows`
+   - Music: `/media/music`
 3. Create user accounts for family members
 4. Configure thumbnail, poster, and fanart settings
 
@@ -370,12 +375,14 @@ Additional resources for Sonarr, Radarr, and Lidarr:
 1. Access each service and create an account
 2. Add indexers from Prowlarr (Settings > Connect > Indexers)
 3. Add your media server connection (Jellyfin)
-4. Set up quality profiles and download locations
+4. Set up quality profiles and download locations:
+   - **Root folder** — Sonarr: `/data/media/videos/shows`, Radarr: `/data/media/videos/movies`, Lidarr: `/data/media/music`
+   - **Remote path mapping** (Settings > Download Clients > Remote Path Mappings) — Remote: `/downloads`, Local: `/data/downloads`
 5. Search for content to verify automation works
 
 ### Step 4: Qbittorrent
 1. Access `http://your-hostname/qbt/` and create an account
-2. Configure download directory and watched folders
+2. Set the default save path to `/downloads` (Tools > Options > Downloads)
 3. Set bandwidth limits as needed
 
 ### Step 5: Seerr
@@ -393,21 +400,28 @@ Additional resources for Sonarr, Radarr, and Lidarr:
 
 ## 📂 Volume Paths & Requirements
 
-**Important:** All volume paths in `.env` must be absolute paths or properly formatted relative paths.
+**Important:** `STORAGE_ROOT` must be an absolute path pointing to a single drive/partition. All service data lives under it — this shared mount point is what makes hardlinking work.
+
+```
+$STORAGE_ROOT/                     ← STORAGE_ROOT
+├── downloads/                     ← qBittorrent download dir
+│   └── slskd/
+│       ├── downloads/             ← slskd/soularr downloads
+│       └── incomplete/            ← slskd in-progress
+└── media/                         ← Jellyfin library root
+    ├── videos/
+    │   ├── movies/                ← Radarr root folder
+    │   └── shows/                 ← Sonarr root folder
+    └── music/                     ← Lidarr root folder
+```
 
 | Variable | Description | Example |
 |----------|-------------|---------|
-| `JELLYFIN_MEDIA_PATH` | Root directory for all media (movies, shows, music) | `/mnt/media` |
+| `STORAGE_ROOT` | Root of your storage drive | `/mnt/your-drive` |
 | `JELLYFIN_CONFIG_PATH` | Jellyfin configuration storage | `./jellyfin/config` |
 | `JELLYFIN_CACHE_PATH` | Jellyfin cache storage | `./jellyfin/cache` |
-| `QBITTORRENT_DOWNLOADS_PATH` | Torrent downloads directory | `/mnt/downloads` |
 | `QBITTORRENT_CONFIG_PATH` | Qbittorrent configuration | `./qbittorrent/config` |
-| `NGINX_SHARE_FILES` | Shared files accessible via `/file/` | `./nginx/files` (optional) |
-
-**Media Organization:**
-- Movies: Place in `{JELLYFIN_MEDIA_PATH}/videos/movies/`
-- TV Shows: Place in `{JELLYFIN_MEDIA_PATH}/videos/shows/`
-- Music: Place in `{JELLYFIN_MEDIA_PATH}/music/`
+| `NGINX_SHARE_FILES` | Shared files accessible via `/files/` | `/mnt/your-drive/nginx_shared_files` (optional) |
 
 ---
 
@@ -454,13 +468,13 @@ docker compose restart sonarr
 
 # Access service console
 docker compose exec sonarr bash
-````
+```
 
 ### Volume Management
 
 ```bash
 # Backup media files
-tar -czf media-backup.tar.gz ./jellyfin/media
+tar -czf media-backup.tar.gz $STORAGE_ROOT/media
 
 # Backup configuration
 tar -czf config-backup.tar.gz ./sonarr ./radarr ./lidarr ./prowlarr
@@ -549,7 +563,7 @@ docker compose down -v
 ### slskd/soularr Not Responding
 
 1. Check if soularr-tools profile is active: `docker compose ps`
-2. Verify slskd config: `docker compose exec slskd cat /config/slskd.config.yml`
+2. Verify slskd config: `docker compose exec slskd cat /app/slskd.config.yml`
 3. Check soularr logs: `docker compose --profile soularr-tools logs soularr`
 
 ### Soulseek Content Not Downloading
@@ -569,7 +583,7 @@ This project is open source and available under the [MIT License](LICENSE).
 ## 🙏 Acknowledgments
 
 - [Jellyfin](https://jellyfin.org) - The media server foundation
-- [Sonarr/Radarr/Lidarr](https://sonarr.tv, https://radarr.video, https://lidarr.audio) - The download automation tools
+- [Sonarr](https://sonarr.tv) / [Radarr](https://radarr.video) / [Lidarr](https://lidarr.audio) - The download automation tools
 - [Prowlarr](https://prowlarr.com) - Indexer aggregation
 - [Soulseek](https://github.com/mrusse/soularr) - Community file sharing
 - All open-source contributors and Docker maintainers
