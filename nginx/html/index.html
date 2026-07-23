@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Homestreaming</title>
+  <style>
+    :root {
+      --bg: #0d1117;
+      --bg-grad: radial-gradient(1200px 600px at 50% -10%, #1b2436 0%, #0d1117 60%);
+      --card: #161b22;
+      --card-hover: #1c2530;
+      --border: #262d38;
+      --text: #e6edf3;
+      --muted: #8b949e;
+      --accent: #4f9dff;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: var(--bg-grad), var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 4rem 1.5rem 3rem;
+      -webkit-font-smoothing: antialiased;
+    }
+    .wrap { max-width: 960px; margin: 0 auto; }
+    header { text-align: center; margin-bottom: 3rem; }
+    h1 {
+      font-size: clamp(2rem, 5vw, 2.75rem);
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+    h1 .home { color: var(--accent); }
+    header p { color: var(--muted); margin-top: 0.6rem; font-size: 1.05rem; }
+    .section-label {
+      text-transform: uppercase;
+      font-size: 0.72rem;
+      letter-spacing: 0.12em;
+      color: var(--muted);
+      margin: 2.2rem 0 0.9rem;
+      font-weight: 600;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 0.9rem;
+    }
+    a.card {
+      display: flex;
+      align-items: center;
+      gap: 0.9rem;
+      padding: 1rem 1.1rem;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      text-decoration: none;
+      color: inherit;
+      transition: transform 0.12s ease, background 0.12s ease, border-color 0.12s ease;
+    }
+    a.card:hover {
+      transform: translateY(-2px);
+      background: var(--card-hover);
+      border-color: var(--accent);
+    }
+    .icon {
+      font-size: 1.6rem;
+      line-height: 1;
+      width: 2.4rem;
+      height: 2.4rem;
+      display: grid;
+      place-items: center;
+      background: #0d1117;
+      border-radius: 9px;
+      flex-shrink: 0;
+    }
+    .meta .name { font-weight: 600; font-size: 0.98rem; }
+    .meta .desc { color: var(--muted); font-size: 0.82rem; margin-top: 0.15rem; }
+    footer {
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.82rem;
+      margin-top: 3rem;
+    }
+    footer a { color: var(--accent); text-decoration: none; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>🏠 <span class="home">Home</span>streaming</h1>
+      <p>Your self-hosted media stack — pick a service.</p>
+    </header>
+
+    <div class="section-label">Watch &amp; Listen</div>
+    <div class="grid">
+      <a class="card" href="/jf/">
+        <div class="icon">🎬</div>
+        <div class="meta"><div class="name">Jellyfin</div><div class="desc">Stream your library</div></div>
+      </a>
+      <a class="card" href="/seerr/">
+        <div class="icon">🍿</div>
+        <div class="meta"><div class="name">Seerr</div><div class="desc">Browse &amp; request titles</div></div>
+      </a>
+    </div>
+
+    <div class="section-label">Automation</div>
+    <div class="grid">
+      <a class="card" href="/sonarr/">
+        <div class="icon">📺</div>
+        <div class="meta"><div class="name">Sonarr</div><div class="desc">TV shows</div></div>
+      </a>
+      <a class="card" href="/radarr/">
+        <div class="icon">🎥</div>
+        <div class="meta"><div class="name">Radarr</div><div class="desc">Movies</div></div>
+      </a>
+      <a class="card" href="/lidarr/">
+        <div class="icon">🎵</div>
+        <div class="meta"><div class="name">Lidarr</div><div class="desc">Music</div></div>
+      </a>
+      <a class="card" href="/prowlarr/">
+        <div class="icon">🔎</div>
+        <div class="meta"><div class="name">Prowlarr</div><div class="desc">Indexers</div></div>
+      </a>
+    </div>
+
+    <div class="section-label">Infrastructure</div>
+    <div class="grid">
+      <a class="card" href="/qbt/">
+        <div class="icon">⬇️</div>
+        <div class="meta"><div class="name">qBittorrent</div><div class="desc">Download client</div></div>
+      </a>
+      <a class="card" href="/slskd/">
+        <div class="icon">👾</div>
+        <div class="meta"><div class="name">slskd</div><div class="desc">Soulseek (optional)</div></div>
+      </a>
+      <a class="card" href="/ag/">
+        <div class="icon">🛡️</div>
+        <div class="meta"><div class="name">AdGuard</div><div class="desc">DNS ad blocking</div></div>
+      </a>
+      <a class="card" href="/files/">
+        <div class="icon">📁</div>
+        <div class="meta"><div class="name">Files</div><div class="desc">Browse &amp; download</div></div>
+      </a>
+    </div>
+
+    <footer>
+      Powered by <a href="https://github.com/Meas/homestreaming">Homestreaming</a>
+    </footer>
+  </div>
+</body>
+</html>

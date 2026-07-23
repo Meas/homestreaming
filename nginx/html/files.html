@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Files · Homestreaming</title>
+  <style>
+    :root {
+      --bg: #0d1117;
+      --bg-grad: radial-gradient(1200px 600px at 50% -10%, #1b2436 0%, #0d1117 60%);
+      --card: #161b22;
+      --card-hover: #1c2530;
+      --border: #262d38;
+      --text: #e6edf3;
+      --muted: #8b949e;
+      --accent: #4f9dff;
+      --danger: #ff7b72;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: var(--bg-grad), var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 3rem 1.5rem 3rem;
+      -webkit-font-smoothing: antialiased;
+    }
+    .wrap { max-width: 960px; margin: 0 auto; }
+    .topbar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.4rem; }
+    h1 { font-size: clamp(1.5rem, 4vw, 2rem); font-weight: 700; letter-spacing: -0.02em; }
+    h1 .accent { color: var(--accent); }
+    .back {
+      color: var(--muted); text-decoration: none; font-size: 0.9rem; white-space: nowrap;
+      padding: 0.5rem 0.85rem; border: 1px solid var(--border); border-radius: 9px;
+      transition: color 0.12s ease, border-color 0.12s ease;
+    }
+    .back:hover { color: var(--text); border-color: var(--accent); }
+    .crumbs { display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem; font-size: 0.92rem; margin-bottom: 0.5rem; }
+    .crumbs a { color: var(--accent); text-decoration: none; cursor: pointer; }
+    .crumbs a:hover { text-decoration: underline; }
+    .crumbs .sep { color: var(--muted); }
+    .crumbs .cur { color: var(--muted); }
+    .count { color: var(--muted); font-size: 0.8rem; margin: 0.4rem 0 1rem; }
+    .list { display: flex; flex-direction: column; gap: 0.5rem; }
+    .row {
+      display: flex; align-items: center; gap: 0.9rem;
+      padding: 0.75rem 1rem;
+      background: var(--card); border: 1px solid var(--border); border-radius: 11px;
+      text-decoration: none; color: inherit; cursor: pointer;
+      transition: transform 0.1s ease, background 0.1s ease, border-color 0.1s ease;
+    }
+    .row:hover { transform: translateY(-1px); background: var(--card-hover); border-color: var(--accent); }
+    .row .icon { font-size: 1.4rem; width: 2rem; text-align: center; flex-shrink: 0; }
+    .row .name { font-weight: 600; font-size: 0.95rem; overflow-wrap: anywhere; }
+    .row .meta { margin-left: auto; padding-left: 0.9rem; color: var(--muted); font-size: 0.8rem; white-space: nowrap; text-align: right; }
+    .row .size { display: inline-block; min-width: 4.75rem; }
+    .msg { text-align: center; color: var(--muted); padding: 3rem 1rem; }
+    .msg.error { color: var(--danger); }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="topbar">
+      <h1>📁 <span class="accent">Files</span></h1>
+      <a class="back" href="/">← Dashboard</a>
+    </div>
+    <div class="crumbs" id="crumbs"></div>
+    <div class="count" id="count"></div>
+    <div class="list" id="list"></div>
+  </div>
+
+  <script>
+    const API = "/files/api/";
+
+    function currentSegments() {
+      const p = new URLSearchParams(location.search).get("p") || "";
+      return p.split("/").filter(Boolean);
+    }
+    function apiDir(segs) {
+      return API + segs.map(encodeURIComponent).join("/") + (segs.length ? "/" : "");
+    }
+    function fileUrl(segs, name) {
+      return apiDir(segs) + encodeURIComponent(name);
+    }
+    function navTo(segs) {
+      const q = segs.length ? "?p=" + encodeURIComponent(segs.join("/")) : "";
+      history.pushState({}, "", "/files/" + q);
+      render();
+    }
+
+    function fmtSize(bytes) {
+      if (bytes == null) return "";
+      const units = ["B", "KB", "MB", "GB", "TB"];
+      let i = 0, n = bytes;
+      while (n >= 1024 && i < units.length - 1) { n /= 1024; i++; }
+      return (i === 0 ? n : n.toFixed(1)) + " " + units[i];
+    }
+    function fmtDate(s) {
+      const d = new Date(s);
+      if (isNaN(d.getTime())) return "";
+      return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+    }
+    function iconFor(name) {
+      const ext = (name.includes(".") ? name.split(".").pop() : "").toLowerCase();
+      if (["mkv", "mp4", "avi", "mov", "webm", "m4v", "ts", "wmv"].includes(ext)) return "🎬";
+      if (["mp3", "flac", "wav", "aac", "ogg", "m4a", "opus"].includes(ext)) return "🎵";
+      if (["jpg", "jpeg", "png", "gif", "webp", "bmp", "svg", "heic"].includes(ext)) return "🖼️";
+      if (["zip", "rar", "7z", "tar", "gz", "bz2", "xz"].includes(ext)) return "🗜️";
+      if (ext === "pdf") return "📕";
+      if (["srt", "sub", "ass", "vtt"].includes(ext)) return "💬";
+      if (["txt", "nfo", "md", "log", "json", "yml", "yaml"].includes(ext)) return "📄";
+      return "📄";
+    }
+
+    function renderCrumbs(segs) {
+      const el = document.getElementById("crumbs");
+      el.innerHTML = "";
+      const crumb = (label, target) => {
+        const a = document.createElement("a");
+        a.textContent = label;
+        a.onclick = () => navTo(target);
+        return a;
+      };
+      el.appendChild(crumb("Files", []));
+      segs.forEach((seg, i) => {
+        const sep = document.createElement("span");
+        sep.className = "sep";
+        sep.textContent = "/";
+        el.appendChild(sep);
+        if (i === segs.length - 1) {
+          const cur = document.createElement("span");
+          cur.className = "cur";
+          cur.textContent = seg;
+          el.appendChild(cur);
+        } else {
+          el.appendChild(crumb(seg, segs.slice(0, i + 1)));
+        }
+      });
+    }
+
+    function showMessage(text, isError) {
+      const list = document.getElementById("list");
+      list.innerHTML = "";
+      const div = document.createElement("div");
+      div.className = "msg" + (isError ? " error" : "");
+      div.textContent = text;
+      list.appendChild(div);
+    }
+
+    function renderRow(segs, entry) {
+      const isDir = entry.type === "directory";
+      const row = document.createElement(isDir ? "div" : "a");
+      row.className = "row";
+      if (isDir) {
+        row.onclick = () => navTo([...segs, entry.name]);
+      } else {
+        row.href = fileUrl(segs, entry.name);
+        row.setAttribute("download", entry.name);
+      }
+
+      const icon = document.createElement("div");
+      icon.className = "icon";
+      icon.textContent = isDir ? "📁" : iconFor(entry.name);
+
+      const name = document.createElement("div");
+      name.className = "name";
+      name.textContent = entry.name;
+
+      const meta = document.createElement("div");
+      meta.className = "meta";
+      const size = isDir ? "" : '<span class="size">' + fmtSize(entry.size) + "</span>";
+      const date = entry.mtime ? " " + fmtDate(entry.mtime) : "";
+      meta.innerHTML = size + date;
+
+      row.appendChild(icon);
+      row.appendChild(name);
+      row.appendChild(meta);
+      return row;
+    }
+
+    async function render() {
+      const segs = currentSegments();
+      renderCrumbs(segs);
+      document.getElementById("count").textContent = "";
+
+      let entries;
+      try {
+        const res = await fetch(apiDir(segs), { headers: { Accept: "application/json" } });
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        entries = await res.json();
+      } catch (e) {
+        showMessage("Could not load this folder (" + e.message + ").", true);
+        return;
+      }
+
+      entries.sort((a, b) => {
+        if (a.type !== b.type) return a.type === "directory" ? -1 : 1;
+        return a.name.localeCompare(b.name, undefined, { numeric: true });
+      });
+
+      if (!entries.length) {
+        showMessage("This folder is empty.", false);
+        return;
+      }
+
+      const dirs = entries.filter((e) => e.type === "directory").length;
+      const files = entries.length - dirs;
+      document.getElementById("count").textContent =
+        dirs + (dirs === 1 ? " folder" : " folders") + " · " + files + (files === 1 ? " file" : " files");
+
+      const list = document.getElementById("list");
+      list.innerHTML = "";
+      entries.forEach((entry) => list.appendChild(renderRow(segs, entry)));
+    }
+
+    window.addEventListener("popstate", render);
+    render();
+  </script>
+</body>
+</html>

@@ -1,184 +1,170 @@
-# 🏠 Self-Hosted Streaming Stack
+# Homestreaming
 
 <div align="center">
 
-![Stream Stack](https://img.shields.io/badge/Streaming-Stack-blue?style=for-the-badge)
-![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?style=for-the-badge&logo=docker)
-![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)
+**A self-hosted media streaming stack — the automation, the storage, and the streaming, all behind a single reverse proxy.**
 
-**A complete self-hosted entertainment ecosystem powered by Docker**
-
-[Features](#-features) • [Architecture](#%EF%B8%8F-architecture) • [Quick Start](#-quick-start) • [HTTPS Configuration](#-https-configuration) • [Services](#-services) • [Accessing Services](#-accessing-services) • [Initial Setup Guide](#-initial-setup-guide) • [Volume Paths](#-volume-paths--requirements) • [Port Requirements](#-port-requirements) • [Troubleshooting](#-troubleshooting) • [Legal Disclaimer](#%EF%B8%8F-legal-disclaimer)
+![Docker Compose](https://img.shields.io/badge/Docker-Compose-2496ED?style=flat-square&logo=docker&logoColor=white)
+![Nginx](https://img.shields.io/badge/Nginx-reverse%20proxy-009639?style=flat-square&logo=nginx&logoColor=white)
+![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)
 
 </div>
 
 ---
 
-## 📖 Overview
+## Overview
 
-This project provides a fully-featured, self-hosted media server stack that brings the convenience of streaming services to your own hardware. All services are proxied through a central Nginx instance with consistent paths, making it work seamlessly with **Tailscale** and other VPN solutions that don't support native subdomain routing.
+Homestreaming is a Docker Compose stack that turns a single machine into a complete, private media platform. It downloads, organizes, and streams movies, TV, and music — and it does it all behind **one Nginx reverse proxy** that exposes every service under a stable path (`/jf/`, `/sonarr/`, `/radarr/`, …).
 
-### ✨ Why Self-Host?
+That path-based design is the defining choice of this project. Most self-hosted stacks assume subdomains (`jellyfin.example.com`), which require DNS control and wildcard certificates. Homestreaming instead routes by URL path, so the entire stack works over a flat network address — a LAN IP, a Tailscale/ZeroTier node, or `localhost` — with no DNS setup at all. Point a VPN at the host and every service is reachable from anywhere.
 
-- **Complete Control** - Own your data and content forever
-- **Privacy First** - No third-party services tracking your viewing habits
-- **Cost Effective** - No recurring subscription fees
-- **Customization** - Tailor every aspect to your needs
-- **Offline Access** - Stream content anywhere with internet access
+### Highlights
+
+- **One entry point.** Every web UI is reached through Nginx — no management interface is exposed to the host directly. A dashboard at the root URL links to them all.
+- **Zero-DNS access.** Path routing works over any flat address — ideal for Tailscale and other mesh VPNs.
+- **Hands-off automation.** Sonarr, Radarr, and Lidarr find, fetch, and file media automatically via Prowlarr and qBittorrent.
+- **Instant hardlinks.** A deliberate single-mount volume layout lets the *arr apps hardlink from downloads into the library — no wasteful copies, no double disk usage.
+- **Request-driven.** Seerr gives users a Netflix-style interface to browse and request titles that the stack then acquires on its own.
+- **HTTP or HTTPS by a single switch.** One environment variable selects the Nginx config.
+- **DNS-level ad blocking.** AdGuard Home is included for network-wide filtering.
 
 ---
 
-## 🏗️ Architecture
+## Architecture
+
+Every service runs on a private Docker bridge network (`app-network`) and is reachable **only** through Nginx. The proxy rewrites each `/service/` prefix to the container's internal port.
 
 ```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                           Nginx Reverse Proxy                               │
-│              Path-Based Routing (All Services via /service/)                │
-└─────────────────────────────────────────────────────────────────────────────┘
-                                     │
-                    ┌────────────────┼────────────────┐
-                    │                │                │
-            ┌───────▼────────┐ ┌────▼───────┐  ┌────▼─────┐
-            │    Jellyfin    │ │  AdGuard   │  │  Seerr   │
-            │    /jf/        │ │   /ag/     │  │ /seerr/  │
-            └────────┬───────┘ └────────────┘  └──────────┘
-                     │                         │
-                     │                         │
-                     ▼                         ▼
-            ┌───────────────────────────────────────────────┐
-            │               Media Storage                   │
-            │  ┌─────────────┬─────────────┬─────────────┐  │
-            │  │    Movies   │  TV Shows   │    Music    │  │
-            │  └─────────────┴─────────────┴─────────────┘  │
-            └───────────────────────────────────────────────┘
-                                 │
-                    ┌────────────┼────────────┐
-                    │            │            │
-                ┌────▼─────┐ ┌────▼────┐ ┌────▼──────┐
-                │  Sonarr  │ │  Radarr │ │   Lidarr  │
-                │ /sonarr/ │ │ /radarr/│ │  /lidarr/ │
-                └────┬─────┘ └────┬────┘ └─────┬─────┘
-                     │            │            │
-                     └────────────┼────────────┘
-                                  │
-                        ┌─────────▼─────────┐
-                        │      Prowlarr     │
-                        │   /prowlarr/      │
-                        │  (Indexer Agg)    │
-                        └─────────┬─────────┘
-                                  │
-                        ┌─────────▼─────────┐
-                        │   Qbittorrent     │
-                        │     /qbt/         │
-                        │   (Torrent DL)    │
-                        └───────────────────┘
+                          ┌───────────────────────────┐
+        Client ──────────▶│           Nginx           │  :80 / :443
+   (LAN / Tailscale)      │   path-based reverse proxy │
+                          └─────────────┬─────────────┘
+                                        │  /service/ → container
+        ┌───────────────┬───────────────┼───────────────┬───────────────┐
+        ▼               ▼               ▼               ▼               ▼
+   ┌─────────┐    ┌──────────┐   ┌───────────┐   ┌──────────┐    ┌──────────┐
+   │ Jellyfin│    │  Seerr   │   │  Sonarr   │   │ Prowlarr │    │ AdGuard  │
+   │  /jf/   │    │ /seerr/  │   │  Radarr   │   │/prowlarr/│    │  /ag/    │
+   │         │    │          │   │  Lidarr   │   │          │    │  DNS :53 │
+   └────┬────┘    └────┬─────┘   └─────┬─────┘   └────┬─────┘    └──────────┘
+        │              │               │              │
+        │      requests│         search │       indexers│──▶ FlareSolverr
+        │              ▼               ▼              │       (Cloudflare)
+        │        ┌──────────┐   ┌───────────┐         │
+        │        │  Sonarr/ │   │qBittorrent│◀────────┘
+        │        │  Radarr  │──▶│   /qbt/   │
+        │        └──────────┘   └─────┬─────┘
+        │                             │ hardlink
+        ▼                             ▼
+   ┌───────────────────────────────────────────────┐
+   │              $STORAGE_ROOT  (one mount)         │
+   │   downloads/  ──hardlink──▶  media/{movies,     │
+   │                                 shows, music}   │
+   └───────────────────────────────────────────────┘
 
-              ┌────────────────────────────────────────┐
-              │  (soularr-tools profile only)          │
-              └────────────────────────────────────────┘
-                                  │
-                          ┌───────────────┐
-                          │               │
-                  ┌───────▼────────┐ ┌────▼───────┐
-                  │    slskd       │ │   soularr  │
-                  │    /slskd/     │ │            │
-                  │  (Soulseek)    │ │            │
-                  └────────────────┘ └────────────┘ 
+   Optional  ── soularr-tools profile ──▶  slskd (/slskd/) + soularr → Soulseek P2P
 ```
 
-**Data Flow:**
-- **Indexers** → Prowlarr → Sonarr/Radarr/Lidarr → Qbittorrent (downloads)
-- **Soulseek** → slskd → soularr (downloads via P2P network)
-- All services → Jellyfin (displays media)
-- Jellyfin → Seerr (suggests content)
+**How media flows**
+
+1. A user requests a title in **Seerr**, or an *arr app monitors for one automatically.
+2. **Sonarr / Radarr / Lidarr** ask **Prowlarr** to search its configured indexers (with **FlareSolverr** handling any Cloudflare-protected ones).
+3. The chosen release is handed to **qBittorrent**, which downloads into `$STORAGE_ROOT/downloads`.
+4. The *arr app **hardlinks** the finished file into `$STORAGE_ROOT/media`, renamed and organized — the torrent keeps seeding, but the library uses no extra space.
+5. **Jellyfin** picks up the new file and streams it to any device.
+
+The optional **slskd + soularr** pair adds Soulseek (P2P) as a music source, driven by Lidarr's wanted list.
 
 ---
 
-## 🚀 Features
+## Services
 
-| Feature | Description |
-|---------|-------------|
-| 🎬 **Automated Media Management** | Sonarr, Radarr, and Lidarr automatically download and organize content |
-| 🎵 **Community Downloads** | Soulseek-based downloading from community sources |
-| 🔍 **Smart Discovery** | Seerr suggests content based on your Jellyfin library |
-| 📡 **Indexer Aggregation** | Prowlarr manages multiple indexer APIs from one place |
-| 🛡️ **Privacy Shield** | AdGuard Home blocks ads and trackers at DNS level |
-| 🔐 **Secure Access** | Unified SSL/TLS encryption for all services |
-| 🌐 **VPN Friendly** | Path-based routing works with Tailscale, ZeroTier, etc. |
-| ⚡ **Containerized** | All services run in Docker for easy deployment |
+| Service | Path | Image | Role |
+|---|---|---|---|
+| **Nginx** | — | `nginx:mainline-alpine` | Reverse proxy and single entry point |
+| **Jellyfin** | `/jf/` | `jellyfin/jellyfin` | Media server / streaming |
+| **Seerr** | `/seerr/` | `seerr/seerr` | Request & discovery frontend |
+| **Sonarr** | `/sonarr/` | `ghcr.io/hotio/sonarr` | TV automation |
+| **Radarr** | `/radarr/` | `ghcr.io/hotio/radarr` | Movie automation |
+| **Lidarr** | `/lidarr/` | `ghcr.io/hotio/lidarr` | Music automation |
+| **Prowlarr** | `/prowlarr/` | `ghcr.io/hotio/prowlarr` | Indexer aggregation |
+| **qBittorrent** | `/qbt/` | `lscr.io/linuxserver/qbittorrent` | Torrent download client |
+| **AdGuard Home** | `/ag/` | `adguard/adguardhome` | Network-wide DNS ad blocking |
+| **FlareSolverr** | *(internal)* | `ghcr.io/flaresolverr/flaresolverr` | Cloudflare bypass for Prowlarr |
+| **slskd** | `/slskd/` | `slskd/slskd` | Soulseek client *(optional profile)* |
+| **soularr** | *(internal)* | `ghcr.io/mrusse/soularr` | Lidarr → Soulseek bridge *(optional profile)* |
 
----
-
-## 📋 Prerequisites
-
-- **Docker** & **Docker Compose** installed
-- **Port 80, 443, and 53** available on your system
-- **Sufficient storage** for your media collection
-- **A reliable torrent client** (optional, for initial setup)
+slskd and soularr only start under the `soularr-tools` profile (see [Soulseek downloading](#soulseek-downloading-optional)). FlareSolverr and soularr have no web path — they are used by other services internally.
 
 ---
 
-## ⚡ Quick Start
+## Prerequisites
 
-### 1. Clone the repository
+- **Docker Engine** and the **Docker Compose plugin**.
+- Host ports **80** and **443** free (Nginx), and **53** free if you use AdGuard's DNS server.
+- A storage location with room for your library, ideally on **one filesystem** (see [Storage layout](#storage-layout)).
+
+---
+
+## Quick start
+
+**1. Clone**
 
 ```bash
-git clone https://github.com/meas/homestreaming.git
+git clone https://github.com/Meas/homestreaming.git
 cd homestreaming
 ```
 
-### 2. Configure environment variables
-
-Copy the example environment file:
+**2. Configure**
 
 ```bash
 cp .env.example .env
 ```
 
-Edit `.env` with your preferences:
+Edit `.env` and set at minimum `STORAGE_ROOT`, `TZ`, and (for HTTPS) `NGINX_CONFIG_NAME`. See [Configuration](#configuration).
 
-```bash
-# Example configuration
-STORAGE_ROOT=/mnt/your-drive
-NGINX_CONFIG_NAME=https # or http-only
-TZ=Europe/Your_City
-```
-
-### 3. Start the stack
+**3. Launch**
 
 ```bash
 docker compose up -d
 ```
+
+**4. Open the stack**
+
+Browse to `http://<host>/` for the dashboard, which links to every service (`/jf/` for Jellyfin, `/sonarr/` for Sonarr, and so on) — where `<host>` is `localhost`, your LAN IP, or your Tailscale address. Then follow the [First-run setup](#first-run-setup) to wire the services together.
 
 ---
 
-## 🔒 HTTPS Configuration
+## Configuration
 
-The stack supports both HTTP and HTTPS modes. Choose your configuration:
+All configuration lives in `.env`. Copy it from `.env.example` and adjust:
 
-### HTTP Mode (Default)
+| Variable | Description | Default |
+|---|---|---|
+| `STORAGE_ROOT` | Absolute path to your storage root. All downloads and media live under it. | `/mnt/your-drive` |
+| `TZ` | Timezone, e.g. `Europe/Sarajevo`. | `Europe/Sarajevo` |
+| `PUID` / `PGID` | User/group IDs that own the config and media files. | `1000` / `1000` |
+| `NGINX_CONFIG_NAME` | Nginx config to load: `http-only` or `https`. | `http-only` |
+| `NGINX_HOST_PORT` | Host port mapped to Nginx HTTP. | `80` |
+| `NGINX_HTTPS_PORT` | Host port mapped to Nginx HTTPS. | `443` |
+| `NGINX_SHARE_FILES` | Optional host directory served as downloadable files at `/files/`. Leave blank to disable. | *(empty)* |
+| `JELLYFIN_CONFIG_PATH` | Jellyfin config volume. | `./jellyfin/config` |
+| `JELLYFIN_CACHE_PATH` | Jellyfin cache volume. | `./jellyfin/cache` |
+| `QBITTORRENT_CONFIG_PATH` | qBittorrent config volume. | `./qbittorrent/config` |
+| `QBITTORRENT_WEBUI_PORT` | qBittorrent's internal WebUI port (proxied at `/qbt/`). | `8080` |
+| `QBITTORRENT_TORRENTING_PORT` | qBittorrent's listening port for peers. | `12854` |
 
-Use this for development or when you don't need encryption:
+> Per-service config is bind-mounted from `./<service>/config` in the repo and is git-ignored — your keys and databases never get committed.
 
-```bash
-NGINX_CONFIG_NAME=http-only
-docker compose up -d
-```
+### HTTP or HTTPS
 
-Access services via `http://your-hostname/service-name`
+The stack ships two interchangeable Nginx configs, selected by `NGINX_CONFIG_NAME`:
 
-### HTTPS Mode
+- **`http-only`** — plain HTTP on port 80. Good for a trusted LAN or when TLS is terminated upstream (e.g. Tailscale already encrypts the tunnel).
+- **`https`** — serves TLS on 443 using the certificate pair at `./nginx/certs/default.crt` / `default.key`, while still answering on 80. The port-80 block redirects to HTTPS *only* for a host that has its own cert at `/etc/ssl/certs/available/<host>.crt`; with just the default cert, both HTTP and HTTPS stay reachable.
 
-Use this for production with SSL encryption:
+For HTTPS, drop your certificate and key into `./nginx/certs/` as `default.crt` / `default.key`. A self-signed pair for testing:
 
-```bash
-NGINX_CONFIG_NAME=https
-docker compose up -d
-```
-
-You need to provide SSL certificates:
-
-**Self-signed certificates (for testing):**
 ```bash
 mkdir -p nginx/certs
 openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
@@ -186,466 +172,232 @@ openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
   -out nginx/certs/default.crt
 ```
 
-**Let's Encrypt (for production):**
-```bash
-# Generate certificate and configure nginx
-docker compose up -d
-# Then use certbot to obtain SSL certificates
-```
-
-**Note:** SSL certificates are mapped from `./nginx/certs/` to `/etc/ssl/certs/` in the nginx container.
-
----
-
-## 🔗 Accessing Services
-
-All services are accessible via path-based routing through Nginx. This setup ensures compatibility with Tailscale, ZeroTier, and other VPN solutions that don't support native subdomain resolution.
-
-| Service | Path | Description |
-|---------|------|-------------|
-| Jellyfin | `/jf/` | Media streaming server |
-| Sonarr | `/sonarr/` | TV series automation |
-| Radarr | `/radarr/` | Movie automation |
-| Lidarr | `/lidarr/` | Music automation |
-| Prowlarr | `/prowlarr/` | Indexer aggregation |
-| Qbittorrent | `/qbt/` | Torrent client |
-| AdGuard | `/ag/` | DNS and ad-blocking |
-| Seerr | `/seerr/` | Content discovery |
-| slskd | `/slskd/` | Soulseek client |
-
-**Examples:**
-- Jellyfin: `http://localhost/jf/` or `http://your-tailscale-ip/jf/`
-- Sonarr: `http://localhost/sonarr/`
-- Seerr: `http://localhost/seerr/`
-
----
-
-## ⚙️ Configuration
-
-### Environment Variables
-
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `STORAGE_ROOT` | Root of your storage drive — all downloads and media live here | - |
-| `QBITTORRENT_WEBUI_PORT` | Qbittorrent WebUI port | 8080 |
-| `QBITTORRENT_TORRENTING_PORT` | Qbittorrent torrenting port | 12854 |
-| `NGINX_CONFIG_NAME` | Nginx configuration mode | `http-only` |
-| `NGINX_HOST_PORT` | Nginx HTTP port | 80 |
-| `NGINX_HTTPS_PORT` | Nginx HTTPS port | 443 |
-| `TZ` | Timezone | - |
-
-### Volume Mappings
-
-| Service | Configuration Volume | Data Volume |
-|---------|---------------------|-------------|
-| Jellyfin | `./jellyfin/config` | `$STORAGE_ROOT/media` → `/media` |
-| qBittorrent | `./qbittorrent/config` | `$STORAGE_ROOT/downloads` → `/downloads` |
-| Sonarr | `./sonarr/config` | `$STORAGE_ROOT` → `/data` |
-| Radarr | `./radarr/config` | `$STORAGE_ROOT` → `/data` |
-| Lidarr | `./lidarr/config` | `$STORAGE_ROOT` → `/data` |
-| slskd | `./slskd/config` | `$STORAGE_ROOT/media` → `/data`, `$STORAGE_ROOT/downloads/slskd/` → `/downloads` + `/incomplete` |
-| soularr | `./soularr/config` | `$STORAGE_ROOT/downloads/slskd/downloads` → `/downloads` |
-
-> **Hardlink note:** Sonarr, Radarr, and Lidarr mount `STORAGE_ROOT` as a single `/data` volume so that `/data/downloads` and `/data/media` share the same filesystem mount point. This is required for instant hardlinking — without it, files are copied instead.
-
----
-
-## 🧩 Services
-
-### 🎬 Jellyfin
-Open-source media server for streaming your personal media collection.
-
-**Docs:** https://jellyfin.org/docs/
-
-### 📺 Seerr
-Automated content discovery service that recommends movies and TV shows based on your Jellyfin library.
-
-**Docs:** https://seerr.dev/
-
-### 🔎 Prowlarr
-Indexer aggregation service that manages API keys for multiple torrent and usenet indexers.
-
-**Docs:** https://prowlarr.com/
-
-### ⬇️ Qbittorrent
-Full-featured, open-source BitTorrent client.
-
-**Docs:** https://www.qbittorrent.org/
-
-### 📺 Sonarr
-Automated TV series download and management tool.
-
-**Docs:** https://sonarr.tv/
-
-### 🎥 Radarr
-Automated movie download and management tool.
-
-**Docs:** https://radarr.video/
-
-### 🎵 Lidarr
-Automated music download and management tool.
-
-**Docs:** https://lidarr.audio/
-
-### 👾 slskd
-Modern Soulseek client with remote configuration support.
-
-**Docs:** https://github.com/slskd/slskd
-
-### 🤖 soularr
-Automated downloader for Soulseek using Lidarr data for metadata matching.
-
-**Docs:** https://github.com/mrusse/soularr
-
-### 🛡️ AdGuard Home
-Network-wide ad blocking DNS server with web interface.
-
-**Docs:** https://github.com/AdguardTeam/AdGuardHome
-
-### 🔄 Nginx
-High-performance web server and reverse proxy.
-
-**Docs:** https://nginx.org/en/docs/
-
-### 🧩 FlareSolverr
-Proxy server to bypass Cloudflare protection for content scraping. Used by Prowlarr when configured with Cloudflare-protected indexers.
-
-**Docs:** https://github.com/FlareSolverr/FlareSolverr
-
-**Note:** Configure Cloudflare bypass in your Prowlarr indexer settings as needed.
-
----
-
-## 🎮 Soularr Setup
-
-Soularr is a tool that automatically downloads content from Soulseek based on your Lidarr data:
+Then set `NGINX_CONFIG_NAME=https` and restart Nginx:
 
 ```bash
-# Start soularr tools profile
-docker compose --profile soularr-tools up -d
-
-# View logs
-docker compose --profile soularr-tools logs -f soularr
-
-# Stop soularr tools
-docker compose --profile soularr-tools down
+docker compose up -d nginx
 ```
 
-**Configuration:** Place your `slskd.config.yml` in `./slskd/config/`
+---
+
+## Storage layout
+
+`STORAGE_ROOT` must be an **absolute path on a single filesystem**. Sonarr, Radarr, and Lidarr each mount `STORAGE_ROOT` as one `/data` volume, so `/data/downloads` and `/data/media` sit on the same mount. This is what lets them **hardlink** completed downloads into the library instead of copying — instant, and using no extra disk. Splitting downloads and media across separate mounts silently breaks hardlinking and doubles your storage use.
+
+Expected structure (created on first run):
+
+```
+$STORAGE_ROOT/
+├── downloads/                    ← qBittorrent downloads
+│   └── slskd/
+│       ├── downloads/            ← slskd + soularr completed
+│       └── incomplete/           ← slskd in progress
+└── media/                        ← Jellyfin library root
+    ├── videos/
+    │   ├── movies/               ← Radarr root folder
+    │   └── shows/                ← Sonarr root folder
+    └── music/                    ← Lidarr root folder
+```
+
+Inside the containers these map to:
+
+| Container path | Used by | Host path |
+|---|---|---|
+| `/data` | Sonarr, Radarr, Lidarr | `$STORAGE_ROOT` |
+| `/downloads` | qBittorrent | `$STORAGE_ROOT/downloads` |
+| `/media` | Jellyfin | `$STORAGE_ROOT/media` |
 
 ---
 
-## 📚 Getting Started Guides
+## Networking & ports
 
-- [Jellyfin Documentation](https://jellyfin.org/docs/)
-- [Sonarr Setup Guide](https://trash-guides.info/Sonarr/)
-- [Radarr Setup Guide](https://trash-guides.info/Radarr/)
-- [Lidarr Setup Guide](https://trash-guides.info/Lidarr/)
-- [Prowlarr Documentation](https://trash-guides.info/Prowlarr/)
+Only Nginx and AdGuard publish ports to the host. Every other service is reachable **only through the proxy** on the internal Docker network — a small but real security benefit, since nothing else is exposed.
 
----
+| Host port | Service | Protocol | Purpose |
+|---|---|---|---|
+| `80` | Nginx | TCP | HTTP (all service paths) |
+| `443` | Nginx | TCP | HTTPS (when `NGINX_CONFIG_NAME=https`) |
+| `53` | AdGuard Home | TCP + UDP | DNS server |
 
-## 📚 Arr Service Documentation
+> **qBittorrent peer port:** `QBITTORRENT_TORRENTING_PORT` (default `12854`) is *not* published to the host in the default compose file, so inbound peer connections rely on your VPN/NAT setup. If you need to accept inbound peers directly, add a `ports:` mapping for it in `docker-compose.yaml`.
 
-Additional resources for Sonarr, Radarr, and Lidarr:
-
-- **[Servarr Wiki](https://wiki.servarr.com/)** - Official documentation for all Arr services
-- **[Trash Guides](https://trash-guides.info/)** - Community guides and best practices
+If ports 80/443/53 are already taken, change `NGINX_HOST_PORT` / `NGINX_HTTPS_PORT` in `.env`, or remap AdGuard's `53` in `docker-compose.yaml`.
 
 ---
 
-## 🧭 Initial Setup Guide
+## First-run setup
 
-### Step 1: Jellyfin
-1. Access `http://your-hostname/jf/` and complete the initial setup wizard
-2. Add your media libraries pointing to the paths inside the container:
-   - Movies: `/media/videos/movies`
-   - TV Shows: `/media/videos/shows`
-   - Music: `/media/music`
-3. Create user accounts for family members
-4. Configure thumbnail, poster, and fanart settings
+The services start empty and need to be connected to each other once. Do it in this order.
 
-### Step 2: Prowlarr
-1. Access `http://your-hostname/prowlarr/` and create an account
-2. Add indexers you have accounts for (ThePirateBay, etc.)
-3. Set indexer authentication in Prowlarr settings if required
-4. Verify indexer connection in "System > Indexers"
+### 1 · Jellyfin — `/jf/`
 
-### Step 3: Sonarr / Radarr / Lidarr
-1. Access each service and create an account
-2. Add indexers from Prowlarr (Settings > Connect > Indexers)
-3. Add your media server connection (Jellyfin)
-4. Add the download client (Settings > Download Clients > +):
-   - Type: qBittorrent, Host: `qbittorrent`, Port: `8080`
-5. Add the remote path mapping (Settings > Download Clients > Remote Path Mappings > +):
+1. Open `http://<host>/jf/` and complete the setup wizard.
+2. Add libraries pointing at the in-container paths:
+   - Movies → `/media/videos/movies`
+   - Shows → `/media/videos/shows`
+   - Music → `/media/music`
+3. Create user accounts as needed.
 
-   | Field | Value |
-   |-------|-------|
-   | Host | `qbittorrent` |
-   | Remote Path | `/downloads` |
-   | Local Path | `/data/downloads` |
+### 2 · qBittorrent — `/qbt/`
 
-6. Add the root folder (Settings > Media Management > Root Folders):
+1. Open `http://<host>/qbt/`. The linuxserver image prints a temporary admin password in its logs on first boot:
+   ```bash
+   docker compose logs qbittorrent | grep -i password
+   ```
+2. Log in, change the password, and set the default save path to `/downloads`.
 
-   | Service | Root Folder |
-   |---------|-------------|
+### 3 · Prowlarr — `/prowlarr/`
+
+1. Open `http://<host>/prowlarr/` and create the admin account.
+2. Add the indexers you have access to.
+3. Under **Settings → Apps**, add Sonarr, Radarr, and Lidarr so Prowlarr can push indexers to them (use each app's container name as the host, e.g. `http://sonarr:8989`).
+4. If an indexer sits behind Cloudflare, add a **FlareSolverr** proxy under **Settings → Indexer Proxies** pointing at `http://flaresolverr:8191`.
+
+### 4 · Sonarr / Radarr / Lidarr
+
+For each of the three (`/sonarr/`, `/radarr/`, `/lidarr/`):
+
+1. Create the admin account.
+2. **Download client** (Settings → Download Clients → qBittorrent):
+   - Host `qbittorrent`, Port `8080`.
+3. **Remote path mapping** (Settings → Download Clients → Remote Path Mappings):
+
+   | Host | Remote path | Local path |
+   |---|---|---|
+   | `qbittorrent` | `/downloads` | `/data/downloads` |
+
+4. **Root folder** (Settings → Media Management):
+
+   | App | Root folder |
+   |---|---|
    | Sonarr | `/data/media/videos/shows` |
    | Radarr | `/data/media/videos/movies` |
    | Lidarr | `/data/media/music` |
 
-7. If migrating an existing setup, update root folders for all existing content via the bulk editor, then update collections/series/artists separately as they store their own root folder independently:
+5. Confirm indexers arrived from Prowlarr, then run a test search.
 
-   | Service | Bulk editor | Individual items | Root folder |
-   |---------|-------------|-----------------|-------------|
-   | Radarr | Movies > Movie Editor → select all → change Root Folder | Movies > Collections → edit each | `/data/media/videos/movies` |
-   | Sonarr | Series > Series Editor → select all → change Root Folder | Series > (each series) → edit | `/data/media/videos/shows` |
-   | Lidarr | Artist > Artist Editor → select all → change Root Folder | Artist > (each artist) → edit | `/data/media/music` |
-8. Search for content to verify automation works
+### 5 · Seerr — `/seerr/`
 
-### Step 4: Qbittorrent
-1. Access `http://your-hostname/qbt/` and create an account
-2. Set the default save path to `/downloads` (Tools > Options > Downloads)
-3. Set bandwidth limits as needed
+1. Open `http://<host>/seerr/` and sign in with your Jellyfin account.
+2. Connect the Jellyfin server and select the libraries to sync.
+3. Connect Sonarr and Radarr so requests are sent straight to them.
 
-### Step 5: Seerr
-1. Access `http://your-hostname/seerr/` and create an account
-2. Connect your Jellyfin server
-3. Select which libraries to monitor (Movies, Shows)
-4. Allow Seerr to scan your library
+### 6 · AdGuard Home — `/ag/` *(optional)*
 
-### Step 6: AdGuard Home (Optional)
-1. Access `http://your-hostname/ag/setup/` and complete setup
-2. Configure your DNS settings in your router or DHCP server
-3. Set up filters and blocklists
+1. Open `http://<host>/ag/setup/` and complete the wizard.
+2. Point your router's or clients' DNS at the host to enable network-wide filtering.
 
 ---
 
-## 📂 Volume Paths & Requirements
+## Soulseek downloading (optional)
 
-**Important:** `STORAGE_ROOT` must be an absolute path pointing to a single drive/partition. All service data lives under it — this shared mount point is what makes hardlinking work.
-
-```
-$STORAGE_ROOT/                     ← STORAGE_ROOT
-├── downloads/                     ← qBittorrent download dir
-│   └── slskd/
-│       ├── downloads/             ← slskd/soularr downloads
-│       └── incomplete/            ← slskd in-progress
-└── media/                         ← Jellyfin library root
-    ├── videos/
-    │   ├── movies/                ← Radarr root folder
-    │   └── shows/                 ← Sonarr root folder
-    └── music/                     ← Lidarr root folder
-```
-
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `STORAGE_ROOT` | Root of your storage drive | `/mnt/your-drive` |
-| `JELLYFIN_CONFIG_PATH` | Jellyfin configuration storage | `./jellyfin/config` |
-| `JELLYFIN_CACHE_PATH` | Jellyfin cache storage | `./jellyfin/cache` |
-| `QBITTORRENT_CONFIG_PATH` | Qbittorrent configuration | `./qbittorrent/config` |
-| `NGINX_SHARE_FILES` | Shared files accessible via `/files/` | `/mnt/your-drive/nginx_shared_files` (optional) |
-
----
-
-## 🔌 Port Requirements
-
-The following ports must be available on your system:
-
-| Port | Service | Protocol | Notes |
-|------|---------|----------|-------|
-| 80 | Nginx | TCP | HTTP default |
-| 443 | Nginx | TCP | HTTPS default |
-| 53 | AdGuard Home | TCP/UDP | DNS server |
-| 5000 | slskd | TCP | WebUI |
-| 5030 | slskd | TCP | Remote configuration |
-| 8080 | Qbittorrent WebUI | TCP | Configure via `QBITTORRENT_WEBUI_PORT` |
-| 12854 | Qbittorrent | TCP | Configure via `QBITTORRENT_TORRENTING_PORT` |
-
-**If ports are occupied:**
-- Modify port mappings in `docker-compose.yaml`
-- Use port forwarding on your router
-- Stop conflicting services
-
----
-
-## 🛠️ Usage
-
-### Common Commands
+slskd and soularr add Soulseek as a music source and only run under the `soularr-tools` profile. slskd uses remote configuration (`SLSKD_REMOTE_CONFIGURATION=true`), so you configure your Soulseek credentials from its web UI at `/slskd/`. soularr reads Lidarr's wanted list on an interval (`SCRIPT_INTERVAL`, default 300s) and searches Soulseek for matches.
 
 ```bash
-# Start all services
-docker compose up -d
-
-# Start with soularr tools
+# Start (also provided as ./start-soularr.sh)
 docker compose --profile soularr-tools up -d
 
-# View logs
-docker compose logs -f
+# Follow soularr's activity
+docker compose logs -f soularr
 
-# Stop all services
+# Stop just these two (also provided as ./stop-soularr.sh)
+docker compose rm -fs soularr slskd
+```
+
+soularr's `config.ini` lives in `./soularr/config`. See the [soularr docs](https://github.com/mrusse/soularr) for its format.
+
+---
+
+## Everyday operations
+
+```bash
+# Start / stop the whole stack
+docker compose up -d
 docker compose down
 
-# Restart specific service
+# Restart one service
 docker compose restart sonarr
 
-# Access service console
-docker compose exec sonarr bash
-```
+# Logs
+docker compose logs -f                # everything
+docker compose logs -f jellyfin       # one service
 
-### Volume Management
-
-```bash
-# Backup media files
-tar -czf media-backup.tar.gz $STORAGE_ROOT/media
-
-# Backup configuration
-tar -czf config-backup.tar.gz ./sonarr ./radarr ./lidarr ./prowlarr
-```
-
-### SSL Certificate Renewal
-
-If using Let's Encrypt certificates, renew them periodically:
-
-```bash
-# Using certbot (example)
-certbot renew --nginx -d your-domain.com
-```
-
-### Updating Services
-
-```bash
-# Update all services to latest tags
+# Update to the latest images
 docker compose pull
 docker compose up -d
 
-# Update specific service
-docker compose pull sonarr
-docker compose up -d sonarr
+# Shell into a container
+docker compose exec sonarr bash
 ```
 
-### Jellyfin WebSocket Fix
-
-For WebSocket connections to work properly with Nginx, the `/jf/socket` location is configured with proper upgrade headers in `./nginx/includes/proxy_services.conf`.
+Back up the git-ignored `./<service>/config` directories to preserve your settings — they hold every app's database and API keys.
 
 ---
 
-## 📝 Customization
+## Customizing the proxy
 
-### Nginx Configuration
+Routing rules are split so the two server configs can share them:
 
-Edit `./nginx/conf.d/http-only.conf` or `./nginx/conf.d/https.conf` to customize reverse proxy rules.
+- `nginx/conf.d/http-only.conf` — the plain-HTTP server block.
+- `nginx/conf.d/https.conf` — the HTTP→HTTPS redirect plus the TLS server block.
+- `nginx/includes/proxy_services.conf` — every `location /service/` block, included by both of the above.
 
-Edit `./nginx/includes/proxy_services.conf` to modify service routing paths.
+To add or change a route, edit `proxy_services.conf` and restart Nginx. A couple of routes need extra care and are already handled there:
+
+- **Jellyfin** uses a WebSocket at `/jf/socket`, given its own location block with `Upgrade`/`Connection` headers and long timeouts.
+- **Seerr** is a Next.js app served under a `basePath` of `/seerr`; the config uses `sub_filter` rules to rewrite its hardcoded asset paths.
 
 ---
 
-## 🔧 Troubleshooting
+## Troubleshooting
 
-### Port Already in Use
+**502 Bad Gateway** — the upstream container isn't up. Check `docker compose ps` and the service's logs; Nginx resolves upstreams by container name, so a stopped container yields a 502.
 
-If ports are already occupied, modify the port mappings in `docker-compose.yaml` or use a port-forwarding solution.
+**Media not showing in Jellyfin** — verify the file landed under `/media/...`, that `PUID`/`PGID` own it, then trigger a library scan.
 
-### Container Won't Start
+**Downloads copy instead of hardlink (double disk usage)** — downloads and media are on different filesystems. Both must live under the single `STORAGE_ROOT` mount so `/data/downloads` and `/data/media` share one filesystem.
 
-```bash
-# Check logs
-docker compose logs service_name
+**Prowlarr can't reach an indexer** — check the indexer status page; if it's Cloudflare-protected, confirm the FlareSolverr proxy is configured (`http://flaresolverr:8191`).
 
-# Rebuild without cache
-docker compose up -d --build
+**slskd / soularr not running** — they only exist under the `soularr-tools` profile. Start them with `docker compose --profile soularr-tools up -d`.
 
-# Remove containers and volumes
-docker compose down -v
+**"Missing root folder" after moving storage** — the *arr apps store a root-folder path on each item as well as globally. After changing storage, use the bulk editor to update all items, then reselect the root folder on any collections/series/artists that still point at the old path.
+
+---
+
+## Project layout
+
+```
+homestreaming/
+├── docker-compose.yaml          # the whole stack
+├── .env.example                 # configuration template
+├── nginx/
+│   ├── conf.d/                  # http-only.conf, https.conf
+│   ├── includes/                # proxy_services.conf (shared routes)
+│   ├── html/                    # landing-page dashboard served at /
+│   └── certs/                   # TLS cert + key (git-ignored)
+├── start-soularr.sh             # bring up the soularr-tools profile
+├── stop-soularr.sh              # tear down slskd + soularr
+└── <service>/config/            # per-service state (git-ignored)
 ```
 
-### Media Not Appearing in Jellyfin
+---
 
-1. Ensure files are in the correct path
-2. Refresh Jellyfin library
-3. Check file permissions
+## Legal
 
-### Prowlarr Indexer Connection Issues
+Homestreaming is infrastructure. It ships with **no indexers, no content, and no credentials** — you supply those. The automation tools it bundles can access copyrighted material through indexers and P2P networks; using them to obtain content you don't have the right to is on you.
 
-1. Verify your indexer account credentials are correct
-2. Check if the indexer requires Cloudflare bypass (configure FlareSolverr)
-3. Verify indexer status in "System > Indexers"
+- Respect the copyright laws where you live.
+- Only download and store content you own or are licensed to.
+- Configure Prowlarr with indexers and accounts you're entitled to use.
+- Follow Soulseek's terms when sharing via slskd/soularr.
 
-### Seerr Not Discovering Content
-
-1. Ensure Seerr can connect to your Jellyfin server
-2. Check Seerr logs: `docker compose logs seerr`
-3. Verify your Jellyfin API key is correct
-
-### Nginx 502 Bad Gateway
-
-1. Check if all required containers are running: `docker compose ps`
-2. Verify service URLs in docker-compose.yaml
-3. Check nginx logs: `docker compose logs nginx`
-
-### slskd/soularr Not Responding
-
-1. Check if soularr-tools profile is active: `docker compose ps`
-2. Verify slskd config: `docker compose exec slskd cat /app/slskd.config.yml`
-3. Check soularr logs: `docker compose --profile soularr-tools logs soularr`
-
-### "Missing root folder" after migrating volume paths
-
-Each service stores root folder paths on individual items separately from the global root folder setting. After a bulk root folder update, you must also update them individually:
-
-| Service | Where | Root folder |
-|---------|-------|-------------|
-| Radarr | Movies > Collections → edit each collection | `/data/media/videos/movies` |
-| Sonarr | Series > each series → edit | `/data/media/videos/shows` |
-| Lidarr | Artist > each artist → edit | `/data/media/music` |
-
-### Soulseek Content Not Downloading
-
-1. Verify slskd user is logged in
-2. Check soularr matching configuration
-3. Verify Lidarr metadata is populated
+The author accepts no responsibility for how this software is used.
 
 ---
 
-## 📄 License
+## License
 
-This project is open source and available under the [MIT License](LICENSE).
+Released under the [MIT License](LICENSE.md). © 2026 Feđa Durmić.
 
----
-
-## 🙏 Acknowledgments
-
-- [Jellyfin](https://jellyfin.org) - The media server foundation
-- [Sonarr](https://sonarr.tv) / [Radarr](https://radarr.video) / [Lidarr](https://lidarr.audio) - The download automation tools
-- [Prowlarr](https://prowlarr.com) - Indexer aggregation
-- [Soulseek](https://github.com/mrusse/soularr) - Community file sharing
-- All open-source contributors and Docker maintainers
-
----
-
-## 📧 Support
-
-- 🐛 [Report an Issue](https://github.com/meas/homestreaming/issues)
-- 💬 [Discussions](https://github.com/meas/homestreaming/discussions)
-- 📧 [Contact](mailto:your.email@example.com)
-
----
-
-## ⚖️ Legal Disclaimer
-
-This project uses automation tools (Sonarr, Radarr, Lidarr, Prowlarr, slskd, soularr) to download content you own or have legally obtained rights to. Indexers may provide access to copyrighted material. Users are responsible for ensuring they have the legal right to download and store such content.
-
-- Respect copyright laws in your country/region
-- Only use content you own or have permission to use
-- Prowlarr indexers should be configured with accounts you own
-- slskd/soularr content sharing should be in accordance with Soulseek's terms
-- The authors of this project are not responsible for any misuse
-
----
-
-<div align="center">
-
-**Made with ❤️ and Docker**
-
-[⬆ Back to Top](#-self-hosted-streaming-stack)
-
-</div>
+Built on the excellent work of [Jellyfin](https://jellyfin.org), the [Servarr](https://wiki.servarr.com/) project (Sonarr / Radarr / Lidarr / Prowlarr), [qBittorrent](https://www.qbittorrent.org/), [slskd](https://github.com/slskd/slskd), [soularr](https://github.com/mrusse/soularr), [FlareSolverr](https://github.com/FlareSolverr/FlareSolverr), and [AdGuard Home](https://github.com/AdguardTeam/AdGuardHome).
