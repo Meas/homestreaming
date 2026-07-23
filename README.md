@@ -398,6 +398,6 @@ The author accepts no responsibility for how this software is used.
 
 ## License
 
-Released under the [MIT License](LICENSE.md). © 2026 Feđa Durmić.
+Released under the [MIT License](LICENSE.md).
 
 Built on the excellent work of [Jellyfin](https://jellyfin.org), the [Servarr](https://wiki.servarr.com/) project (Sonarr / Radarr / Lidarr / Prowlarr), [qBittorrent](https://www.qbittorrent.org/), [slskd](https://github.com/slskd/slskd), [soularr](https://github.com/mrusse/soularr), [FlareSolverr](https://github.com/FlareSolverr/FlareSolverr), and [AdGuard Home](https://github.com/AdguardTeam/AdGuardHome).
