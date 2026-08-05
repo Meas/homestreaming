@@ -15,11 +15,6 @@ services:
     image: ghcr.io/immich-app/immich-machine-learning:${IMMICH_VERSION}-cuda
     container_name: immich-machine-learning
     restart: unless-stopped
-    environment:
-      # Never unload idle models. The default (300s) evicts them between job
-      # types, so a batch session reloads the same weights repeatedly. Worth it
-      # only when VRAM comfortably holds every model at once.
-      - MACHINE_LEARNING_MODEL_TTL=0
     ports:
       - "3003:3003"
     volumes:
