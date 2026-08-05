@@ -83,6 +83,9 @@ The optional **slskd + soularr** pair adds Soulseek (P2P) as a music source, dri
 |---|---|---|---|
 | **Nginx** | — | `nginx:mainline-alpine` | Reverse proxy and single entry point |
 | **Jellyfin** | `/jf/` | `jellyfin/jellyfin` | Media server / streaming |
+| **Immich** | *(port `2283`)* | `ghcr.io/immich-app/immich-server` | Photo & video library |
+| **Immich Postgres** | *(internal)* | `ghcr.io/immich-app/postgres` | Immich metadata + AI vectors |
+| **Immich Redis** | *(internal)* | `valkey/valkey` | Immich job queue |
 | **Seerr** | `/seerr/` | `seerr/seerr` | Request & discovery frontend |
 | **Sonarr** | `/sonarr/` | `ghcr.io/hotio/sonarr` | TV automation |
 | **Radarr** | `/radarr/` | `ghcr.io/hotio/radarr` | Movie automation |
@@ -93,6 +96,8 @@ The optional **slskd + soularr** pair adds Soulseek (P2P) as a music source, dri
 | **FlareSolverr** | *(internal)* | `ghcr.io/flaresolverr/flaresolverr` | Cloudflare bypass for Prowlarr |
 | **slskd** | `/slskd/` | `slskd/slskd` | Soulseek client *(optional profile)* |
 | **soularr** | *(internal)* | `ghcr.io/mrusse/soularr` | Lidarr → Soulseek bridge *(optional profile)* |
+
+Immich is the one service **not** on a path — it only works at the root of a host, so it gets its own port instead (see [Photos with Immich](#photos-with-immich)).
 
 slskd and soularr only start under the `soularr-tools` profile (see [Soulseek downloading](#soulseek-downloading-optional)). FlareSolverr and soularr have no web path — they are used by other services internally.
 
@@ -192,12 +197,15 @@ $STORAGE_ROOT/
 │   └── slskd/
 │       ├── downloads/            ← slskd + soularr completed
 │       └── incomplete/           ← slskd in progress
+├── immich/                       ← Immich photo library (fully managed)
 └── media/                        ← Jellyfin library root
     ├── videos/
     │   ├── movies/               ← Radarr root folder
     │   └── shows/                ← Sonarr root folder
     └── music/                    ← Lidarr root folder
 ```
+
+`immich/` is managed entirely by Immich — originals, thumbnails and transcodes. **Copying files into it by hand does nothing**; Immich never scans it. Photos get in through the mobile app or the CLI (see [Photos with Immich](#photos-with-immich)). It sits outside `media/` so Jellyfin's library root stays clean.
 
 Inside the containers these map to:
 
@@ -206,6 +214,9 @@ Inside the containers these map to:
 | `/data` | Sonarr, Radarr, Lidarr | `$STORAGE_ROOT` |
 | `/downloads` | qBittorrent | `$STORAGE_ROOT/downloads` |
 | `/media` | Jellyfin | `$STORAGE_ROOT/media` |
+| `/data` | Immich | `$STORAGE_ROOT/immich` |
+
+> **Immich's database is the exception to `STORAGE_ROOT`.** It lives at `./immich/postgres` in the repo, on local disk, because Postgres is not supported on network shares. If your `STORAGE_ROOT` is a NAS mount, this matters.
 
 ---
 
@@ -217,6 +228,7 @@ Only Nginx and AdGuard publish ports to the host. Every other service is reachab
 |---|---|---|---|
 | `80` | Nginx | TCP | HTTP (all service paths) |
 | `443` | Nginx | TCP | HTTPS (when `NGINX_CONFIG_NAME=https`) |
+| `2283` | Nginx | TCP | Immich (`IMMICH_HOST_PORT`) |
 | `53` | AdGuard Home | TCP + UDP | DNS server |
 
 > **qBittorrent peer port:** `QBITTORRENT_TORRENTING_PORT` (default `12854`) is *not* published to the host in the default compose file, so inbound peer connections rely on your VPN/NAT setup. If you need to accept inbound peers directly, add a `ports:` mapping for it in `docker-compose.yaml`.
@@ -308,6 +320,156 @@ soularr's `config.ini` lives in `./soularr/config`. See the [soularr docs](https
 
 ---
 
+## Photos with Immich
+
+Immich is a photo and video library with AI-powered search and face recognition. It runs alongside the rest of the stack but differs from it in two ways worth knowing up front.
+
+**It is not on a path.** Immich [only works at the root of a host](https://docs.immich.app/administration/reverse-proxy) — `/img/` and friends are not supported, and no amount of rewriting makes the mobile app work under one. So Nginx serves it on its own port instead: `http://<host>:2283`. That port follows `NGINX_CONFIG_NAME`, so it's HTTPS when the rest of the stack is.
+
+**It manages its own storage.** Everything lives under `$STORAGE_ROOT/immich` — originals, thumbnails, transcodes. Copying files into that folder by hand does nothing; Immich does not scan it. Photos get in through the mobile app, the web UI, or the CLI.
+
+**Its database is the one thing not on `STORAGE_ROOT`.** Postgres is unsupported on network shares, so it lives at `./immich/postgres`, on the host's local disk. This is also what makes Immich portable between machines: the photos sit on shared storage and never move, so [relocating Immich](#moving-immich-to-another-machine) means moving only a database dump.
+
+### Setup
+
+```bash
+# Create the directory first, or Docker creates it owned by root
+mkdir -p "$STORAGE_ROOT"/immich
+
+docker compose up -d immich-server
+```
+
+Open `http://<host>:2283` and create the admin account. Then, **before importing anything**, go to **Administration → Settings → Storage Template** and enable it. This makes files land at `library/<user>/2019/2019-08-14/IMG_1234.jpg` instead of opaque hashed paths — so your library stays navigable on disk without Immich's help. Enabling it later means re-shuffling every file via the Storage Template Migration job, so it's much cheaper to do now.
+
+Immich has no `PUID`/`PGID` support — it runs as root and owns everything under `$STORAGE_ROOT/immich`.
+
+### Importing an existing photo collection
+
+**There is no drop folder.** Your existing photos stay exactly where they are — the CLI reads them from that location and uploads them over HTTP, and Immich decides where they land under `$STORAGE_ROOT/immich`. Nothing needs to be moved or staged beforehand.
+
+Use the CLI. `--album` turns each source folder into an album, so your existing directory structure is preserved as organisation rather than lost:
+
+```bash
+# Dry run first — shows what would be uploaded, changes nothing
+docker run --rm -v /path/to/photos:/import:ro \
+  -e IMMICH_INSTANCE_URL=http://<host>:2283/api \
+  -e IMMICH_API_KEY=<key from Account Settings → API Keys> \
+  ghcr.io/immich-app/immich-cli:latest upload --recursive --album --dry-run /import
+
+# Then for real: drop --dry-run
+```
+
+Files are hashed before upload and the server deduplicates independently, so re-running is safe and interrupted imports can simply be resumed.
+
+> **Keep the source folder until you've verified the import.** The CLI has a `--delete` flag that removes local files as it goes — useful if you're short on disk, since a straight import needs room for a second full copy. But it is destructive and irreversible: only reach for it once a dry run looks right, and never on your only copy.
+
+### Adding other users
+
+**Administration → Users → Create user** (email, name, password, optional storage quota). Only the first registered user is an admin — everyone created afterwards is a regular user with no access to the Administration section at all, so no extra configuration is needed to keep server settings private.
+
+Immich is **per-user ownership**: each account has its own library, and one user's uploads are invisible to another by default. Two ways to overlap, neither of which grants delete rights over someone else's assets:
+
+- **Partner sharing** — a full-library view of another user's timeline. One-way, so both parties must share to see each other. View and download only, and it excludes people/facial-recognition data: each user builds and names their own set of people.
+- **Shared albums** — invite users as *Viewer* or *Editor*. An Editor can add assets, but cannot remove assets owned by the album owner.
+
+> **Remote access:** Immich is only reachable on the tailnet. Other users' phones need Tailscale installed and access to your tailnet, or app backup will silently only work on the home network.
+
+### AI processing on the GPU box
+
+Smart search and face detection are the expensive parts, and they run in a separate container that can live on a different machine. It is **stateless** — no photos, no database, just a model cache. The server sends it an image preview over HTTP and gets back a CLIP embedding and face bounding boxes, which it stores in its own database.
+
+This stack ships **no ML container in `docker-compose.yaml`**. It lives in `immich/remote-ml.yml` and runs on the GPU box:
+
+```bash
+./immich/start-immich-ml.sh     # pulls, then starts
+./immich/stop-immich-ml.sh
+```
+
+Point Immich at it once: **Administration → Settings → Machine Learning → Add URL**. This is stored in Immich's database, not in `.env` — the `IMMICH_MACHINE_LEARNING_URL` environment variable is deprecated.
+
+Use the GPU box's **Tailscale IP**, e.g. `http://100.108.78.65:3003`, and use it even when Immich is running on that same machine. Two reasons:
+
+- **It survives the move.** The same URL works whether Immich runs on the GPU box or the Pi, so migrating changes nothing here.
+- **Hostnames are unreliable here.** The lookup happens inside the `immich-server` container, which resolves via Docker's embedded DNS forwarding to the host — and if this stack's AdGuard is your resolver, it won't know Tailscale MagicDNS names. A raw tailnet IP is stable for the life of the device and involves no DNS at all.
+
+Verify before trusting it:
+
+```bash
+curl http://100.108.78.65:3003/ping    # expect: pong
+```
+
+> **If that hangs, it's almost always the firewall.** On Windows + WSL2, Docker Desktop publishes the port to the Windows host (so the tailnet IP works), but Windows Firewall rules are sometimes scoped to the private-network profile only, and the Tailscale adapter may not be classified as private.
+
+**Keep `IMMICH_VERSION` identical on both machines** — mismatched versions misbehave. `immich/start-immich-ml.sh` pulls before starting for exactly this reason, so bumping the version in `.env` is enough.
+
+Since inference runs on a GPU, raise the CLIP model from the small default under **Settings → Machine Learning → Smart Search**. `ViT-SO400M-16-SigLIP2-384__webli` tops Immich's curated English list and is comfortable on any discrete GPU; it is markedly better than the default at scene descriptions and niche queries. Models are downloaded at runtime from [huggingface.co/immich-app](https://huggingface.co/immich-app) into the `model-cache` volume — the image tag only picks the runtime, so no image change is needed to switch.
+
+For OCR, prefer `PP-OCRv5_server` over the `_mobile` default — the larger pair needs roughly 12GB of VRAM. Leave **facial recognition** on `buffalo_l`: it is already the strongest model available, and `antelopev2` is a downgrade despite the name.
+
+Changing any of these means re-processing the whole library from the Jobs page (**Smart Search → All**, and likewise for OCR), so set them *before* the initial import and it costs nothing.
+
+### When the GPU box is off
+
+ML jobs simply fail. That's harmless: a failed job doesn't mark the asset as processed, so it stays queued as "missing" and gets picked up later. Browsing, uploading and thumbnail generation are unaffected — those all run on the Immich host.
+
+If the failed-job counter bothers you, switch **Settings → Machine Learning → Enabled** off between sessions. It costs nothing except having to remember to switch it back on — and forgetting means the Missing jobs below silently do nothing.
+
+So the routine, whenever you next power the GPU box up:
+
+1. **Settings → Machine Learning → Enabled** on, if you turned it off
+2. GPU box: `./immich/start-immich-ml.sh`
+3. **Administration → Jobs**: run **Smart Search → Missing**, then **Face Detection → Missing**
+4. Wait for both queues to drain
+5. GPU box: `./immich/stop-immich-ml.sh` — you can shut it down now
+6. **Jobs → Facial Recognition → Missing**
+
+Step 5 needs no GPU: facial *recognition* is the clustering pass over vectors already in the database. Only *detection* and smart search need the remote container.
+
+### Moving Immich to another machine
+
+Bootstrapping on a fast machine and then handing off to a slow one is a supported path, and cheap here — **because only the database moves.**
+
+That works because of one invariant: Immich stores **container-internal** paths, not host paths. Both machines mount their storage at `/data`, so every asset row stays valid even though `STORAGE_ROOT` differs between them. Keep the photos on shared storage from the very first import and they never move at all; the dump is only metadata, embeddings and face vectors, so it's small and quick regardless of library size.
+
+> **Dump the database — never copy `./immich/postgres`.** A Postgres data directory is not portable across architectures, and x86-64 → arm64 is exactly that. `pg_dump` output is plain SQL and is portable; the data directory is not.
+
+> **Only one Immich may run against a given `STORAGE_ROOT`.** After the handover, do not start the old instance again — two servers writing to the same storage with diverging databases will corrupt the library. Stop the old one before starting the new, and keep its database directory only as a rollback.
+
+On the source machine:
+
+```bash
+docker compose stop immich-server          # quiesce the DB first
+docker exec -t immich-postgres pg_dump --clean --if-exists \
+  --dbname=immich --username=postgres | gzip > immich-dump.sql.gz
+```
+
+On the target machine — clone this repo, carry `.env` across, and set `STORAGE_ROOT` to wherever that machine sees the same storage. `IMMICH_DB_PASSWORD` does not need to match the source: `pg_dump` of a single database carries no roles, so it only has to be consistent within the target's own `.env`. `IMMICH_VERSION` **does** have to match.
+
+```bash
+docker compose create                       # create, do not start
+docker start immich-postgres && sleep 10
+
+gunzip --stdout immich-dump.sql.gz \
+  | docker exec -i immich-postgres psql --dbname=immich \
+      --username=postgres --single-transaction --set ON_ERROR_STOP=on
+
+docker compose up -d
+```
+
+The restore requires a database Immich has **never started against** — if `immich-server` has already run and created a schema, `docker compose down -v` first. Run the same `IMMICH_VERSION` on both ends, or the restored schema won't match the binary.
+
+Finally, confirm the machine-learning URL still points at the GPU box. If you used its Tailscale IP as recommended above, it already does.
+
+### Gotchas
+
+- **Thumbnail generation cannot be offloaded.** It runs on the server, not the ML container. For a large first import it — not the AI — is the bottleneck, which is the main argument for doing that import on your fastest machine and [handing off afterwards](#moving-immich-to-another-machine).
+- **Writes to network storage are slow.** If `STORAGE_ROOT` is an SMB/NFS mount, every thumbnail and transcode crosses it. Correct, but expect the initial import to take considerably longer than local disk would.
+- **Deleting an asset in the UI deletes the file.** Immich owns this library; there is no read-only safety net. Assets go to trash first and are purged after 30 days.
+- **Budget for derived files.** Thumbnails and previews run to a few hundred KB per photo on top of the originals, plus transcodes for videos.
+- Back up **both** `./immich/postgres` (via `pg_dump`) and `$STORAGE_ROOT/immich`. The database alone is useless, and vice versa. See the [Immich backup docs](https://docs.immich.app/administration/backup-and-restore).
+
+---
+
 ## Everyday operations
 
 ```bash
@@ -373,9 +535,14 @@ homestreaming/
 ├── .env.example                 # configuration template
 ├── nginx/
 │   ├── conf.d/                  # http-only.conf, https.conf
-│   ├── includes/                # proxy_services.conf (shared routes)
+│   ├── includes/                # proxy_services.conf, immich.conf
 │   ├── html/                    # landing-page dashboard served at /
 │   └── certs/                   # TLS cert + key (git-ignored)
+├── immich/
+│   ├── remote-ml.yml            # ML container for the GPU box (not the NAS)
+│   ├── start-immich-ml.sh       # GPU box: start remote ML
+│   ├── stop-immich-ml.sh        # GPU box: stop remote ML
+│   └── postgres/                # Immich database (git-ignored)
 ├── start-soularr.sh             # bring up the soularr-tools profile
 ├── stop-soularr.sh              # tear down slskd + soularr
 └── <service>/config/            # per-service state (git-ignored)

@@ -102,6 +102,11 @@
         <div class="icon">🍿</div>
         <div class="meta"><div class="name">Seerr</div><div class="desc">Browse &amp; request titles</div></div>
       </a>
+      <!-- Immich lives on its own port, which a relative URL can't express. -->
+      <a class="card" id="immich" href="/">
+        <div class="icon">📷</div>
+        <div class="meta"><div class="name">Immich</div><div class="desc">Photos &amp; videos</div></div>
+      </a>
     </div>
 
     <div class="section-label">Automation</div>
@@ -148,5 +153,8 @@
       Powered by <a href="https://github.com/Meas/homestreaming">Homestreaming</a>
     </footer>
   </div>
+  <script>
+    immich.href = location.protocol + "//" + location.hostname + ":2283/";
+  </script>
 </body>
 </html>
