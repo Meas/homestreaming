@@ -227,10 +227,29 @@ services:
     networks:
       - app-network
 
+  # CPU inference, always on. Not an optimisation — smart search encodes the
+  # *query text* through the CLIP text tower at search time, so without a
+  # reachable ML server there is no searching at all.
+  #
+  # The GPU box in immich/remote-ml.yml is the fast path for bulk indexing and
+  # is listed ahead of this one; Immich health-checks both and skips whichever
+  # is down, so this is the fallback that keeps search alive the rest of the week.
+  # No published port: immich-server reaches it over app-network by name.
+  immich-machine-learning:
+    image: ghcr.io/immich-app/immich-machine-learning:${IMMICH_VERSION}
+    container_name: immich-machine-learning
+    restart: unless-stopped
+    volumes:
+      - immich-model-cache:/cache
+    networks:
+      - app-network
+
 networks:
   app-network:
     driver: bridge
 
 volumes:
   adguard-work-data:
+    driver: local
+  immich-model-cache:
     driver: local

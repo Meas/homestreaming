@@ -374,18 +374,29 @@ Immich is **per-user ownership**: each account has its own library, and one user
 
 > **Remote access:** Immich is only reachable on the tailnet. Other users' phones need Tailscale installed and access to your tailnet, or app backup will silently only work on the home network.
 
-### AI processing on the GPU box
+### AI processing: two ML servers
 
-Smart search and face detection are the expensive parts, and they run in a separate container that can live on a different machine. It is **stateless** — no photos, no database, just a model cache. The server sends it an image preview over HTTP and gets back a CLIP embedding and face bounding boxes, which it stores in its own database.
+Machine learning runs in a **stateless** container — no photos, no database, just a model cache. It takes an image preview over HTTP and returns a CLIP embedding and face bounding boxes, which the server stores in its own database.
 
-This stack ships **no ML container in `docker-compose.yaml`**. It lives in `immich/remote-ml.yml` and runs on the GPU box:
+There are **two** of them, and the reason is worth understanding:
 
-```bash
-./immich/start-immich-ml.sh     # pulls, then starts
-./immich/stop-immich-ml.sh
+- `immich-machine-learning` in `docker-compose.yaml` — CPU, runs full time next to the server.
+- `immich-machine-learning-cuda` in `immich/remote-ml.yml` — the GPU box, started only for bulk work.
+
+> **Smart search needs an ML server at query time, not just at index time.** Typing "backpack on grass" encodes *that text* through the CLIP text tower before it can be compared against your photo vectors. With no reachable ML server, search returns nothing — indexing having finished months ago makes no difference. That is why the NAS runs its own copy rather than borrowing the GPU box's.
+
+Register both under **Administration → Settings → Machine Learning**, GPU box first:
+
+```
+http://100.108.78.65:3003            <- GPU box, Tailscale IP
+http://immich-machine-learning:3003  <- the local CPU one, over app-network
 ```
 
-Point Immich at it once: **Administration → Settings → Machine Learning → Add URL**. This is stored in Immich's database, not in `.env` — the `IMMICH_MACHINE_LEARNING_URL` environment variable is deprecated.
+This list lives in Immich's database, not in `.env` — the `IMMICH_MACHINE_LEARNING_URL` environment variable is deprecated.
+
+**Order is preference, and it is self-managing.** Immich polls `/ping` on every URL and sorts healthy ones ahead of unhealthy ones on each request. Start the GPU box and it silently takes over; shut it down and the CPU one picks up on the next health tick. There is no toggle to remember.
+
+> **Leave Availability Checks enabled** for that to work. With them off, Immich treats every URL as healthy and tries the GPU box first regardless — so every search stalls on a dead connection while the PC is off.
 
 Use the GPU box's **Tailscale IP**, e.g. `http://100.108.78.65:3003`, and use it even when Immich is running on that same machine. Two reasons:
 
@@ -402,28 +413,47 @@ curl http://100.108.78.65:3003/ping    # expect: pong
 
 **Keep `IMMICH_VERSION` identical on both machines** — mismatched versions misbehave. `immich/start-immich-ml.sh` pulls before starting for exactly this reason, so bumping the version in `.env` is enough.
 
-Since inference runs on a GPU, raise the CLIP model from the small default under **Settings → Machine Learning → Smart Search**. `ViT-SO400M-16-SigLIP2-384__webli` tops Immich's curated English list and is comfortable on any discrete GPU; it is markedly better than the default at scene descriptions and niche queries. Models are downloaded at runtime from [huggingface.co/immich-app](https://huggingface.co/immich-app) into the `model-cache` volume — the image tag only picks the runtime, so no image change is needed to switch.
+#### Choosing the CLIP model
 
-For OCR, prefer `PP-OCRv5_server` over the `_mobile` default — the larger pair needs roughly 12GB of VRAM. Leave **facial recognition** on `buffalo_l`: it is already the strongest model available, and `antelopev2` is a downgrade despite the name.
+One setting, both machines. A CLIP model is a matched pair of towers — the **visual** one turns photos into vectors, the **textual** one turns your query into a vector in that same space. Index with one checkpoint and search with another and the vectors are meaningless to each other, so you cannot run a big model on the GPU box and a small one on the NAS.
 
-Changing any of these means re-processing the whole library from the Jobs page (**Smart Search → All**, and likewise for OCR), so set them *before* the initial import and it costs nothing.
+**The NAS only ever needs the textual tower**, though, and that is the number to budget against. Measured, fp32:
 
-### When the GPU box is off
+| model | textual (NAS holds this) | visual (GPU box only) |
+| --- | --- | --- |
+| `ViT-L-14-quickgelu__dfn2b` | **500 MB** | 1216 MB |
+| `ViT-B-16-SigLIP-384__webli` | 895 MB | 829 MB |
+| `ViT-L-16-SigLIP2-384__webli` | 2297 MB | 1265 MB |
+| `ViT-SO400M-16-SigLIP2-384__webli` | 2866 MB | 1713 MB |
 
-ML jobs simply fail. That's harmless: a failed job doesn't mark the asset as processed, so it stays queued as "missing" and gets picked up later. Browsing, uploading and thumbnail generation are unaffected — those all run on the Immich host.
+`ViT-L-14-quickgelu__dfn2b` is the recommendation under **Settings → Machine Learning → Smart Search**. It is a strong retrieval model, well clear of the `ViT-B-32__openai` default, and its text tower is small enough that a search on the Pi costs a second or two rather than swapping.
 
-If the failed-job counter bothers you, switch **Settings → Machine Learning → Enabled** off between sessions. It costs nothing except having to remember to switch it back on — and forgetting means the Missing jobs below silently do nothing.
+The SigLIP2 rows are big for a reason that does not apply here: over a gigabyte of each is a 256k-entry *multilingual* vocabulary table. For English-only searching that is pure weight.
 
-So the routine, whenever you next power the GPU box up:
+Models download at runtime from [huggingface.co/immich-app](https://huggingface.co/immich-app) into each machine's `model-cache` volume — the image tag only picks the runtime, so switching needs no image change.
 
-1. **Settings → Machine Learning → Enabled** on, if you turned it off
-2. GPU box: `./immich/start-immich-ml.sh`
+For OCR, prefer `PP-OCRv5_server` over the `_mobile` default. Leave **facial recognition** on `buffalo_l`: it is already the strongest available, and `antelopev2` is a downgrade despite the name. Neither is needed at query time — OCR text and face clusters are plain database rows once written — so both are GPU-box concerns only.
+
+Changing any of these re-processes the whole library from the Jobs page (**Smart Search → All**, and likewise for OCR), so set them *before* the initial import and it costs nothing.
+
+> **Do not set `MACHINE_LEARNING_MODEL_TTL=0`.** The TTL is an *idle* timer, so a running queue keeps its model hot regardless — pinning buys nothing during a batch and everything stays resident afterwards. Immich holds six models at once (CLIP textual + visual, face detection + recognition, OCR detection + recognition), and the server-grade ones will fill a 24 GB card.
+
+Both containers use the stock 300-second TTL. On the NAS that means the first search after a quiet spell reloads the text tower — a few seconds — and later ones are instant. Raising `MACHINE_LEARNING_MODEL_TTL` on `immich-machine-learning` trades RAM for a consistently snappy search, but note it pins whatever else that container has touched: with the GPU box off, the NAS also indexes new uploads, so the visual tower and face models land in the same cache. Tune it once you know how much RAM the NAS actually has spare.
+
+### Weekly routine: indexing on the GPU box
+
+Search and browsing work all week without the PC. What the PC is for is clearing the indexing backlog quickly — the CPU container will grind through new phone uploads on its own, just slowly.
+
+1. GPU box: `./immich/start-immich-ml.sh`
+2. Wait a health tick, then confirm the log says `Machine learning server became healthy (http://100.108.78.65:3003)`
 3. **Administration → Jobs**: run **Smart Search → Missing**, then **Face Detection → Missing**
 4. Wait for both queues to drain
-5. GPU box: `./immich/stop-immich-ml.sh` — you can shut it down now
+5. GPU box: `./immich/stop-immich-ml.sh` — the PC can shut down now
 6. **Jobs → Facial Recognition → Missing**
 
-Step 5 needs no GPU: facial *recognition* is the clustering pass over vectors already in the database. Only *detection* and smart search need the remote container.
+Step 6 needs no GPU at all: facial *recognition* is the clustering pass over vectors already in the database. Only detection and smart search go through an ML server.
+
+Run **Smart Search** and **Face Detection** as separate passes rather than at once. Each model the container touches stays resident for the TTL window, so overlapping passes stack all of them in VRAM simultaneously.
 
 ### Moving Immich to another machine
 
