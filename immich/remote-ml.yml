@@ -1,0 +1,39 @@
+# The GPU fast path, run on the PC only when there is bulk indexing to do. The
+# NAS runs its own CPU copy of this container full time (see docker-compose.yaml)
+# — that one keeps search working, this one just chews through the backlog fast.
+#
+# Stateless: no photos, no database, never touches STORAGE_ROOT. The NAS posts
+# image previews to :3003 and gets back CLIP embeddings and face bounding boxes,
+# which it stores in its own DB.
+#
+#   ./immich/start-immich-ml.sh     (pulls, then starts)
+#   ./immich/stop-immich-ml.sh
+#
+# Register it once, above the NAS URL: Admin -> Settings -> Machine Learning.
+# Immich health-checks every URL and prefers the healthy ones in list order, so
+# starting this container is the whole switch — there is nothing to toggle back.
+# IMMICH_VERSION must match the NAS, or the two drift and misbehave.
+
+name: immich-remote-ml
+
+services:
+  immich-machine-learning:
+    image: ghcr.io/immich-app/immich-machine-learning:${IMMICH_VERSION}-cuda
+    # Distinct from the NAS container's name so both can run on one host.
+    container_name: immich-machine-learning-cuda
+    restart: unless-stopped
+    ports:
+      - "3003:3003"
+    volumes:
+      - model-cache:/cache
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities:
+                - gpu
+
+volumes:
+  model-cache:

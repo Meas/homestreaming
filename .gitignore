@@ -19,5 +19,9 @@ nginx/certs/*
 adguard/config/*
 adguard/work/*
 
+# Directory, not contents: Postgres runs it as uid 999 mode 0700, so a
+# `immich/postgres/*` pattern would make git try to read it and warn.
+immich/postgres/
+
 .claude
 CLAUDE.md
