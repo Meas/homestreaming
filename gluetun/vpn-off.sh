@@ -1,12 +1,13 @@
 #!/bin/sh
-# Drop the tunnel. This is a kill switch, not a bypass: gluetun's firewall then
-# blocks prowlarr and flaresolverr from the internet entirely. Container-to-
-# container traffic keeps working, so the *arrs and nginx still reach Prowlarr.
-# Bring it back with vpn-shuffle.sh. To run without a VPN at all, start the
-# stack from docker-compose.yaml alone.
+# Start the stack in plain mode: prowlarr and flaresolverr back on app-network,
+# exiting on the home IP.
 set -eu
+cd "$(dirname "$0")/.."
 
-ctl() { docker exec prowlarr curl -fsS --max-time 20 "$@"; }
+# No --remove-orphans: it would sweep up the profiled services (soularr, slskd).
+docker compose up -d
+docker rm -f gluetun >/dev/null 2>&1 || true
 
-ctl -X PUT -d '{"status":"stopped"}' http://127.0.0.1:8000/v1/vpn/status
+docker exec prowlarr curl -fsS --max-time 20 https://api.ipify.org |
+    sed 's/^/exit IP: /'
 echo
