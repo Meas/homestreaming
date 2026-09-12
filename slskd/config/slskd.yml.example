@@ -1,0 +1,41 @@
+# Only the settings this stack actually sets. slskd writes a fully commented
+# reference file with every available option on first run — don't mirror it
+# here, it changes between versions.
+
+directories:
+  incomplete: /incomplete
+  downloads: /downloads
+
+shares:
+  directories:
+    - /downloads
+
+web:
+  url_base: /slskd
+  authentication:
+    disabled: false
+    username: slskd
+    password: your_slskd_web_password_here
+    api_keys:
+      my_api_key:
+        # Must match [Slskd] api_key in soularr/config/config.ini.
+        # 16-255 characters.
+        key: your_slskd_api_key_here
+
+# slskd retains everything forever if this block is absent — searches alone
+# reached 1.5GB and incomplete files sat around for nine months. These are
+# the settings that keep it bounded.
+retention:
+  search: 10080 # 7 days, in minutes
+  transfers:
+    download:
+      succeeded: 1440 # 1 day
+      errored: 10080 # 7 days, keep for troubleshooting
+      cancelled: 60 # 1 hour
+  files:
+    complete: 20160 # 14 days
+    incomplete: 43200 # 30 days
+
+soulseek:
+  username: your_soulseek_username
+  password: your_soulseek_password
