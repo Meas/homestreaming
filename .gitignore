@@ -12,7 +12,9 @@ radarr/config/*
 lidarr/config/*
 prowlarr/config/*
 slskd/config/*
+!slskd/config/slskd.yml.example
 soularr/config/*
+!soularr/config/config.ini.example
 
 nginx/certs/*
 
