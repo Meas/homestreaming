@@ -1,0 +1,6 @@
+# Unauthenticated, but port 8000 is never published — only containers sharing
+# gluetun's netns can reach it.
+[[roles]]
+name = "local"
+routes = ["GET /v1/publicip/ip", "GET /v1/vpn/status", "PUT /v1/vpn/status"]
+auth = "none"

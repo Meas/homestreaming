@@ -1,0 +1,45 @@
+# Routes prowlarr's indexer lookups through PIA. Not loaded by a plain
+# `docker compose up -d` — vpn-shuffle.sh pulls it in, vpn-off.sh drops it.
+services:
+  gluetun:
+    image: qmcgaw/gluetun
+    container_name: gluetun
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    environment:
+      - VPN_SERVICE_PROVIDER=private internet access
+      - VPN_TYPE=openvpn
+      - OPENVPN_USER=${PIA_USERNAME}
+      - OPENVPN_PASSWORD=${PIA_PASSWORD}
+      - SERVER_REGIONS=${PIA_REGIONS}
+      # Container-to-container traffic bypasses the tunnel.
+      - FIREWALL_OUTBOUND_SUBNETS=172.18.0.0/16
+      - TZ=${TZ}
+    volumes:
+      - ./gluetun/auth.toml:/gluetun/auth/config.toml:ro
+    networks:
+      app-network:
+        # prowlarr and flaresolverr no longer hold these names; gluetun answers.
+        aliases:
+          - prowlarr
+          - flaresolverr
+
+  # Both share gluetun's netns: cf_clearance is bound to the IP that solved the
+  # challenge, so a split exit 403s every Cloudflare-protected indexer.
+  prowlarr:
+    networks: !reset null
+    network_mode: service:gluetun
+
+  flaresolverr:
+    networks: !reset null
+    network_mode: service:gluetun
+    depends_on:
+      - gluetun

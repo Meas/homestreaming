@@ -163,6 +163,8 @@ services:
       - ./prowlarr/config:/config
     networks:
       - app-network
+    depends_on:
+      - flaresolverr
 
   flaresolverr:
     <<: *default-logging
