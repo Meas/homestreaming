@@ -1,6 +1,14 @@
+x-logging: &default-logging
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "3"
+
 services:
   
   nginx:
+    <<: *default-logging
     image: nginx:mainline-alpine
     container_name: nginx
     restart: unless-stopped
@@ -19,6 +27,7 @@ services:
       - app-network
 
   qbittorrent:
+    <<: *default-logging
     image: lscr.io/linuxserver/qbittorrent:latest
     container_name: qbittorrent
     restart: unless-stopped
@@ -35,6 +44,7 @@ services:
       - app-network
 
   jellyfin:
+    <<: *default-logging
     image: jellyfin/jellyfin
     container_name: jellyfin
     restart: unless-stopped
@@ -49,6 +59,7 @@ services:
       - app-network
 
   seerr:
+    <<: *default-logging
     image: seerr/seerr:develop
     init: true
     container_name: seerr
@@ -63,6 +74,7 @@ services:
     networks:
       - app-network
   adguardhome:
+    <<: *default-logging
     image: adguard/adguardhome
     container_name: adguard
     restart: unless-stopped
@@ -76,6 +88,7 @@ services:
       - app-network
 
   sonarr:
+    <<: *default-logging
     image: ghcr.io/hotio/sonarr
     container_name: sonarr
     restart: unless-stopped
@@ -90,6 +103,7 @@ services:
       - app-network
 
   radarr:
+    <<: *default-logging
     image: ghcr.io/hotio/radarr
     container_name: radarr
     restart: unless-stopped
@@ -103,6 +117,7 @@ services:
     networks:
       - app-network
   lidarr:
+    <<: *default-logging
     image: ghcr.io/hotio/lidarr
     container_name: lidarr
     restart: unless-stopped
@@ -116,6 +131,7 @@ services:
     networks:
       - app-network
   slskd:
+    <<: *default-logging
     image: slskd/slskd
     container_name: slskd
     hostname: slskd
@@ -135,6 +151,7 @@ services:
     networks:
       - app-network
   prowlarr:
+    <<: *default-logging
     image: ghcr.io/hotio/prowlarr
     container_name: prowlarr
     restart: unless-stopped
@@ -148,6 +165,7 @@ services:
       - app-network
 
   flaresolverr:
+    <<: *default-logging
     image: ghcr.io/flaresolverr/flaresolverr:latest
     container_name: flaresolverr
     restart: unless-stopped
@@ -158,6 +176,7 @@ services:
       - app-network
 
   soularr:
+    <<: *default-logging
     image: ghcr.io/mrusse/soularr:dev
     container_name: soularr
     hostname: soularr
@@ -182,6 +201,7 @@ services:
   # CLI — dropping files into this folder by hand does nothing, Immich does not
   # scan it. It has no PUID/PGID support and runs as root.
   immich-server:
+    <<: *default-logging
     image: ghcr.io/immich-app/immich-server:${IMMICH_VERSION}
     container_name: immich-server
     restart: unless-stopped
@@ -202,6 +222,7 @@ services:
 
   # Postgres data must live on local disk — network shares are unsupported.
   immich-postgres:
+    <<: *default-logging
     image: ghcr.io/immich-app/postgres:14-vectorchord0.4.3-pgvectors0.2.0@sha256:bcf63357191b76a916ae5eb93464d65c07511da41e3bf7a8416db519b40b1c23
     container_name: immich-postgres
     restart: unless-stopped
@@ -219,6 +240,7 @@ services:
       - app-network
 
   immich-redis:
+    <<: *default-logging
     image: docker.io/valkey/valkey:9@sha256:8e8d64b405ce18f41b8e5ee20aa4687a8ed0022d1298f2ce31cdcf3a76e09411
     container_name: immich-redis
     restart: unless-stopped
@@ -236,6 +258,7 @@ services:
   # is down, so this is the fallback that keeps search alive the rest of the week.
   # No published port: immich-server reaches it over app-network by name.
   immich-machine-learning:
+    <<: *default-logging
     image: ghcr.io/immich-app/immich-machine-learning:${IMMICH_VERSION}
     container_name: immich-machine-learning
     restart: unless-stopped
