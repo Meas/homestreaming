@@ -1,6 +1,7 @@
 #!/bin/sh
-# Reconnect to a random server from PIA_REGIONS. Prowlarr stays up throughout.
+# Turn the VPN on, or reroll the exit if it is already on. Prowlarr stays up.
 set -eu
+cd "$(dirname "$0")/.."
 
 # curl lives in prowlarr, which shares gluetun's netns, so :8000 is the control
 # server. gluetun itself only ships busybox wget, which cannot PUT.
@@ -8,11 +9,20 @@ ctl() { docker exec prowlarr curl -fsS --max-time 20 "$@"; }
 API=http://127.0.0.1:8000/v1
 exit_ip() { ctl "$API/publicip/ip" 2>/dev/null | sed -n 's/.*"public_ip":"\([^"]*\)".*/\1/p'; }
 
-before=$(exit_ip) || before=""
-echo "current: ${before:-none}"
+running=$(docker ps --filter name=gluetun --format '{{.Names}}' | grep -cx gluetun || true)
 
-ctl -X PUT -d '{"status":"stopped"}' "$API/vpn/status" >/dev/null
-ctl -X PUT -d '{"status":"running"}' "$API/vpn/status" >/dev/null
+before=""
+if [ "$running" -eq 1 ]; then
+    before=$(exit_ip) || before=""
+    echo "current: ${before:-none}"
+fi
+
+docker compose -f docker-compose.yaml -f gluetun/compose.yaml up -d
+
+if [ "$running" -eq 1 ]; then
+    ctl -X PUT -d '{"status":"stopped"}' "$API/vpn/status" >/dev/null
+    ctl -X PUT -d '{"status":"running"}' "$API/vpn/status" >/dev/null
+fi
 
 i=0
 while [ "$i" -lt 60 ]; do

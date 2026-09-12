@@ -1,7 +1,5 @@
-# Routes prowlarr's indexer lookups through PIA. Opt in per command:
-#   docker compose -f docker-compose.yaml -f gluetun/compose.yaml up -d
-# or permanently, in .env:
-#   COMPOSE_FILE=docker-compose.yaml:gluetun/compose.yaml
+# Routes prowlarr's indexer lookups through PIA. Not loaded by a plain
+# `docker compose up -d` — vpn-shuffle.sh pulls it in, vpn-off.sh drops it.
 services:
   gluetun:
     image: qmcgaw/gluetun
