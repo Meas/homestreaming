@@ -17,7 +17,9 @@ if [ "$running" -eq 1 ]; then
     echo "current: ${before:-none}"
 fi
 
-docker compose -f docker-compose.yaml -f gluetun/compose.yaml up -d
+# Auto-loaded by every later `docker compose` call, so `down` sees gluetun too.
+ln -sfn gluetun/compose.yaml docker-compose.override.yaml
+docker compose up -d
 
 if [ "$running" -eq 1 ]; then
     ctl -X PUT -d '{"status":"stopped"}' "$API/vpn/status" >/dev/null
@@ -36,6 +38,7 @@ while [ "$i" -lt 60 ]; do
         else
             echo "new: $ip (geoip says $country)"
         fi
+        ./gluetun/reset-clearance.sh
         exit 0
     fi
     i=$((i + 1))

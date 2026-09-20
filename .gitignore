@@ -27,3 +27,6 @@ immich/postgres/
 
 .claude
 CLAUDE.md
+
+# Symlink to gluetun/compose.yaml while the VPN is on.
+docker-compose.override.yaml
