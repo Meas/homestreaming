@@ -188,7 +188,7 @@ services:
     user: ${PUID-1000}:${PGID-1000}
     environment:
       - TZ=${TZ}
-      - SCRIPT_INTERVAL=300
+      - SCRIPT_INTERVAL=1800
     volumes:
       - ${STORAGE_ROOT}/downloads/slskd/downloads:/downloads
       - ./soularr/config:/data
