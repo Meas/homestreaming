@@ -23,6 +23,9 @@ services:
       # Container-to-container traffic bypasses the tunnel.
       - FIREWALL_OUTBOUND_SUBNETS=172.18.0.0/16
       - TZ=${TZ}
+    # Docker's DNS NAT is gone in this netns and gluetun's resolver NXDOMAINs container names.
+    extra_hosts:
+      - flaresolverr:127.0.0.1
     volumes:
       - ./gluetun/auth.toml:/gluetun/auth/config.toml:ro
     networks:
