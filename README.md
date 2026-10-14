@@ -158,6 +158,7 @@ All configuration lives in `.env`. Copy it from `.env.example` and adjust:
 | `QBITTORRENT_CONFIG_PATH` | qBittorrent config volume. | `./qbittorrent/config` |
 | `QBITTORRENT_WEBUI_PORT` | qBittorrent's internal WebUI port (proxied at `/qbt/`). | `8080` |
 | `QBITTORRENT_TORRENTING_PORT` | qBittorrent's listening port for peers. | `12854` |
+| `SOULARR_SCRIPT_INTERVAL` | Seconds between soularr's searches for Lidarr's wanted albums. | `1800` |
 
 > Per-service config is bind-mounted from `./<service>/config` in the repo and is git-ignored — your keys and databases never get committed.
 
