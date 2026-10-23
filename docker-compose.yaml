@@ -52,7 +52,7 @@ services:
     volumes:
       - ${JELLYFIN_CONFIG_PATH}:/config
       - ${JELLYFIN_CACHE_PATH}:/cache
-      - ${JELLYFIN_TRANSCODE_PATH}:/transcodes
+      - ${JELLYFIN_TRANSCODE_PATH:-${JELLYFIN_CACHE_PATH}/transcodes}:/transcodes
       - ${STORAGE_ROOT}/media:/media
     environment:
       - TZ=${TZ}
