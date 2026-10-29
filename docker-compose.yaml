@@ -1,4 +1,7 @@
-x-logging: &default-logging
+x-common: &common
+  restart: unless-stopped
+  networks:
+    - app-network
   logging:
     driver: json-file
     options:
@@ -8,10 +11,9 @@ x-logging: &default-logging
 services:
   
   nginx:
-    <<: *default-logging
+    <<: *common
     image: nginx:mainline-alpine
     container_name: nginx
-    restart: unless-stopped
     ports:
       - "${NGINX_HOST_PORT}:80"
       - "${NGINX_HTTPS_PORT}:443"
@@ -23,14 +25,11 @@ services:
       - ./nginx/includes:/etc/nginx/includes
       - ./nginx/certs:/etc/ssl/certs
       - ${NGINX_SHARE_FILES}:/var/www/html/files
-    networks:
-      - app-network
 
   qbittorrent:
-    <<: *default-logging
+    <<: *common
     image: lscr.io/linuxserver/qbittorrent:latest
     container_name: qbittorrent
-    restart: unless-stopped
     environment:
       - PUID=${PUID-1000}
       - PGID=${PGID-1000}
@@ -40,14 +39,11 @@ services:
     volumes:
       - ${QBITTORRENT_CONFIG_PATH}:/config
       - ${STORAGE_ROOT}/downloads:/downloads
-    networks:
-      - app-network
 
   jellyfin:
-    <<: *default-logging
+    <<: *common
     image: jellyfin/jellyfin
     container_name: jellyfin
-    restart: unless-stopped
     user: ${PUID-1000}:${PGID-1000}
     volumes:
       - ${JELLYFIN_CONFIG_PATH}:/config
@@ -56,15 +52,12 @@ services:
       - ${STORAGE_ROOT}/media:/media
     environment:
       - TZ=${TZ}
-    networks:
-      - app-network
 
   seerr:
-    <<: *default-logging
+    <<: *common
     image: seerr/seerr:develop
     init: true
     container_name: seerr
-    restart: unless-stopped
     environment:
       - PUID=${PUID-1000}
       - PGID=${PGID-1000}
@@ -72,29 +65,23 @@ services:
       - TZ=${TZ}
     volumes:
       - ./seerr/config:/app/config
-    networks:
-      - app-network
   adguardhome:
-    <<: *default-logging
+    <<: *common
     image: adguard/adguardhome
     container_name: adguard
-    restart: unless-stopped
     ports:
       - 53:53/tcp
       - 53:53/udp
     volumes:
       - ./adguard/config:/opt/adguardhome/conf
       - adguard-work-data:/opt/adguardhome/work
-    networks:
-      - app-network
 
   sonarr:
-    <<: *default-logging
+    <<: *common
     build:
       context: ./mkv-fix
       dockerfile: ../sonarr/Dockerfile
     container_name: sonarr
-    restart: unless-stopped
     environment:
       - PUID=${PUID-1000}
       - PGID=${PGID-1000}
@@ -102,16 +89,13 @@ services:
     volumes:
       - ./sonarr/config/:/config
       - ${STORAGE_ROOT}:/data
-    networks:
-      - app-network
 
   radarr:
-    <<: *default-logging
+    <<: *common
     build:
       context: ./mkv-fix
       dockerfile: ../radarr/Dockerfile
     container_name: radarr
-    restart: unless-stopped
     environment:
       - PUID=${PUID-1000}
       - PGID=${PGID-1000}
@@ -119,13 +103,10 @@ services:
     volumes:
       - ./radarr/config/:/config
       - ${STORAGE_ROOT}:/data
-    networks:
-      - app-network
   lidarr:
-    <<: *default-logging
+    <<: *common
     image: ghcr.io/hotio/lidarr
     container_name: lidarr
-    restart: unless-stopped
     environment:
       - PUID=${PUID-1000}
       - PGID=${PGID-1000}
@@ -133,16 +114,13 @@ services:
     volumes:
       - ./lidarr/config/:/config
       - ${STORAGE_ROOT}:/data
-    networks:
-      - app-network
   slskd:
-    <<: *default-logging
+    <<: *common
     image: slskd/slskd
     container_name: slskd
     hostname: slskd
     profiles:
       - soularr-tools
-    restart: unless-stopped
     user: ${PUID-1000}:${PGID-1000}
     environment:
       - TZ=${TZ}
@@ -153,43 +131,34 @@ services:
       - ${STORAGE_ROOT}/media:/data
       - ${STORAGE_ROOT}/downloads/slskd/incomplete:/incomplete
       - ${STORAGE_ROOT}/downloads/slskd/downloads:/downloads
-    networks:
-      - app-network
   prowlarr:
-    <<: *default-logging
+    <<: *common
     image: ghcr.io/hotio/prowlarr
     container_name: prowlarr
-    restart: unless-stopped
     environment:
       - PUID=${PUID-1000}
       - PGID=${PGID-1000}
       - TZ=${TZ}
     volumes:
       - ./prowlarr/config:/config
-    networks:
-      - app-network
     depends_on:
       - flaresolverr
 
   flaresolverr:
-    <<: *default-logging
+    <<: *common
     image: ghcr.io/flaresolverr/flaresolverr:latest
     container_name: flaresolverr
-    restart: unless-stopped
     environment:
       - LOG_LEVEL=info
       - TZ=${TZ}
-    networks:
-      - app-network
 
   soularr:
-    <<: *default-logging
+    <<: *common
     image: ghcr.io/mrusse/soularr:dev
     container_name: soularr
     hostname: soularr
     profiles:
       - soularr-tools
-    restart: unless-stopped
     user: ${PUID-1000}:${PGID-1000}
     environment:
       - TZ=${TZ}
@@ -197,8 +166,6 @@ services:
     volumes:
       - ${STORAGE_ROOT}/downloads/slskd/downloads:/downloads
       - ./soularr/config:/data
-    networks:
-      - app-network
     depends_on:
       - lidarr
       - slskd
@@ -208,10 +175,9 @@ services:
   # CLI — dropping files into this folder by hand does nothing, Immich does not
   # scan it. It has no PUID/PGID support and runs as root.
   immich-server:
-    <<: *default-logging
+    <<: *common
     image: ghcr.io/immich-app/immich-server:${IMMICH_VERSION}
     container_name: immich-server
-    restart: unless-stopped
     volumes:
       - ${STORAGE_ROOT}/immich:/data
     environment:
@@ -224,15 +190,12 @@ services:
     depends_on:
       - immich-postgres
       - immich-redis
-    networks:
-      - app-network
 
   # Postgres data must live on local disk — network shares are unsupported.
   immich-postgres:
-    <<: *default-logging
+    <<: *common
     image: ghcr.io/immich-app/postgres:14-vectorchord0.4.3-pgvectors0.2.0@sha256:bcf63357191b76a916ae5eb93464d65c07511da41e3bf7a8416db519b40b1c23
     container_name: immich-postgres
-    restart: unless-stopped
     environment:
       POSTGRES_PASSWORD: ${IMMICH_DB_PASSWORD}
       POSTGRES_USER: postgres
@@ -243,18 +206,13 @@ services:
     volumes:
       - ./immich/postgres:/var/lib/postgresql/data
     shm_size: 128mb
-    networks:
-      - app-network
 
   immich-redis:
-    <<: *default-logging
+    <<: *common
     image: docker.io/valkey/valkey:9@sha256:8e8d64b405ce18f41b8e5ee20aa4687a8ed0022d1298f2ce31cdcf3a76e09411
     container_name: immich-redis
-    restart: unless-stopped
     healthcheck:
       test: redis-cli ping || exit 1
-    networks:
-      - app-network
 
   # CPU inference, always on. Not an optimisation — smart search encodes the
   # *query text* through the CLIP text tower at search time, so without a
@@ -265,14 +223,11 @@ services:
   # is down, so this is the fallback that keeps search alive the rest of the week.
   # No published port: immich-server reaches it over app-network by name.
   immich-machine-learning:
-    <<: *default-logging
+    <<: *common
     image: ghcr.io/immich-app/immich-machine-learning:${IMMICH_VERSION}
     container_name: immich-machine-learning
-    restart: unless-stopped
     volumes:
       - immich-model-cache:/cache
-    networks:
-      - app-network
 
 networks:
   app-network:
