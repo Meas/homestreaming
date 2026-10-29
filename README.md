@@ -288,6 +288,9 @@ For each of the three (`/sonarr/`, `/radarr/`, `/lidarr/`):
    | Lidarr | `/data/media/music` |
 
 5. Confirm indexers arrived from Prowlarr, then run a test search.
+6. **Sonarr / Radarr only — MKV compression fix** (Settings → Connect → + → Custom Script): path `/mkv-fix/fix-mkv-compression.sh`, triggers *On File Import* and *On File Upgrade*.
+
+   Some releases mark subtitle tracks with explicit zlib compression, which ExoPlayer-based clients (Wholphin) can't direct play; the fallback remux can't seek. The script losslessly rewrites such files in the background right after import and logs to `./<app>/config/mkv-fix.log`. `radarr/Dockerfile` and `sonarr/Dockerfile` extend the hotio images with `mkvtoolnix`, `jq` and the script.
 
 ### 5 · Seerr — `/seerr/`
 
@@ -515,8 +518,9 @@ docker compose restart sonarr
 docker compose logs -f                # everything
 docker compose logs -f jellyfin       # one service
 
-# Update to the latest images
+# Update to the latest images (Sonarr/Radarr are built locally on top of hotio)
 docker compose pull
+docker compose build --pull
 docker compose up -d
 
 # Shell into a container
@@ -574,6 +578,10 @@ homestreaming/
 │   ├── start-immich-ml.sh       # GPU box: start remote ML
 │   ├── stop-immich-ml.sh        # GPU box: stop remote ML
 │   └── postgres/                # Immich database (git-ignored)
+├── mkv-fix/
+│   └── fix-mkv-compression.sh   # Sonarr/Radarr Custom Script: strips track compression on import
+├── radarr/Dockerfile            # hotio radarr + mkvtoolnix (build context: mkv-fix/)
+├── sonarr/Dockerfile            # hotio sonarr + mkvtoolnix (build context: mkv-fix/)
 ├── start-soularr.sh             # bring up the soularr-tools profile
 ├── stop-soularr.sh              # tear down slskd + soularr
 └── <service>/config/            # per-service state (git-ignored)

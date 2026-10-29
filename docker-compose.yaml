@@ -90,7 +90,9 @@ services:
 
   sonarr:
     <<: *default-logging
-    image: ghcr.io/hotio/sonarr
+    build:
+      context: ./mkv-fix
+      dockerfile: ../sonarr/Dockerfile
     container_name: sonarr
     restart: unless-stopped
     environment:
@@ -105,7 +107,9 @@ services:
 
   radarr:
     <<: *default-logging
-    image: ghcr.io/hotio/radarr
+    build:
+      context: ./mkv-fix
+      dockerfile: ../radarr/Dockerfile
     container_name: radarr
     restart: unless-stopped
     environment:
