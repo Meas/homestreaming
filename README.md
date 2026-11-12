@@ -242,6 +242,20 @@ If ports 80/443/53 are already taken, change `NGINX_HOST_PORT` / `NGINX_HTTPS_PO
 
 The services start empty and need to be connected to each other once. Do it in this order.
 
+### 0 · URL bases for Sonarr, Radarr, Lidarr and Prowlarr
+
+Nginx passes `/sonarr/`, `/radarr/`, `/lidarr/` and `/prowlarr/` through unchanged, so each app must know its own path, or its page returns 404. Their `config.xml` is created on first start; set the base once:
+
+```bash
+docker compose stop sonarr radarr lidarr prowlarr
+for app in sonarr radarr lidarr prowlarr; do
+  sed -i "s|<UrlBase></UrlBase>|<UrlBase>/$app</UrlBase>|" "$app/config/config.xml"
+done
+docker compose start sonarr radarr lidarr prowlarr
+```
+
+Inside the Docker network their APIs then live under the same path, e.g. `http://sonarr:8989/sonarr`. Use that full URL wherever one service points at another (Prowlarr apps, Seerr).
+
 ### 1 · Jellyfin — `/jf/`
 
 1. Open `http://<host>/jf/` and complete the setup wizard.
@@ -263,7 +277,7 @@ The services start empty and need to be connected to each other once. Do it in t
 
 1. Open `http://<host>/prowlarr/` and create the admin account.
 2. Add the indexers you have access to.
-3. Under **Settings → Apps**, add Sonarr, Radarr, and Lidarr so Prowlarr can push indexers to them (use each app's container name as the host, e.g. `http://sonarr:8989`).
+3. Under **Settings → Apps**, add Sonarr, Radarr, and Lidarr so Prowlarr can push indexers to them (e.g. `http://sonarr:8989/sonarr`; Prowlarr Server `http://prowlarr:9696/prowlarr`).
 4. If an indexer sits behind Cloudflare, add a **FlareSolverr** proxy under **Settings → Indexer Proxies** pointing at `http://flaresolverr:8191`.
 
 ### 4 · Sonarr / Radarr / Lidarr
