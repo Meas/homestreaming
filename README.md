@@ -152,7 +152,7 @@ All configuration lives in `.env`. Copy it from `.env.example` and adjust:
 | `NGINX_CONFIG_NAME` | Nginx config to load: `http-only` or `https`. | `http-only` |
 | `NGINX_HOST_PORT` | Host port mapped to Nginx HTTP. | `80` |
 | `NGINX_HTTPS_PORT` | Host port mapped to Nginx HTTPS. | `443` |
-| `NGINX_SHARE_FILES` | Optional host directory served as downloadable files at `/files/`. Leave blank to disable. | *(empty)* |
+| `NGINX_SHARE_FILES` | Optional host directory served as downloadable files at `/files/`. Leave blank for an empty share. | *(empty)* |
 | `JELLYFIN_CONFIG_PATH` | Jellyfin config volume. | `./jellyfin/config` |
 | `JELLYFIN_CACHE_PATH` | Jellyfin cache volume. | `./jellyfin/cache` |
 | `QBITTORRENT_CONFIG_PATH` | qBittorrent config volume. | `./qbittorrent/config` |
