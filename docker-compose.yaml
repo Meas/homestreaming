@@ -105,7 +105,9 @@ services:
       - ${STORAGE_ROOT}:/data
   lidarr:
     <<: *common
-    image: ghcr.io/hotio/lidarr
+    build:
+      context: ./album-date-fix
+      dockerfile: ../lidarr/Dockerfile
     container_name: lidarr
     environment:
       - PUID=${PUID-1000}

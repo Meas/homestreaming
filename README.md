@@ -305,6 +305,11 @@ For each of the three (`/sonarr/`, `/radarr/`, `/lidarr/`):
 6. **Sonarr / Radarr only — MKV compression fix** (Settings → Connect → + → Custom Script): path `/mkv-fix/fix-mkv-compression.sh`, triggers *On File Import* and *On File Upgrade*.
 
    Some releases mark subtitle tracks with explicit zlib compression, which ExoPlayer-based clients (Wholphin) can't direct play; the fallback remux can't seek. The script losslessly rewrites such files in the background right after import and logs to `./<app>/config/mkv-fix.log`. `radarr/Dockerfile` and `sonarr/Dockerfile` extend the hotio images with `mkvtoolnix`, `jq` and the script.
+7. **Lidarr only — original album dates.** Lidarr writes the date of the matched edition (often a remaster or reissue) into the date tag, and Jellyfin shows that as the album year ([Lidarr#738](https://github.com/Lidarr/Lidarr/issues/738)).
+   - Settings → Metadata → *Tag Audio Files with Metadata*: **For new downloads only**, or Lidarr's refresh writes the edition dates back.
+   - Settings → Connect → + → Custom Script: path `/album-date-fix/fix-album-date.py`, triggers *On Release Import*, *On Upgrade* and *On Track Retag*.
+
+   The script rewrites only the date tag, to the album's original release date from Lidarr's database. For an existing library, run it once: `docker exec -u 1000:1000 lidarr /album-date-fix/fix-album-date.py --all`, then refresh the Music library's metadata in Jellyfin. `lidarr/Dockerfile` extends the hotio image with `py3-mutagen` and the script.
 
 ### 5 · Seerr — `/seerr/`
 
@@ -592,6 +597,9 @@ homestreaming/
 │   ├── start-immich-ml.sh       # GPU box: start remote ML
 │   ├── stop-immich-ml.sh        # GPU box: stop remote ML
 │   └── postgres/                # Immich database (git-ignored)
+├── album-date-fix/
+│   └── fix-album-date.py        # Lidarr Custom Script: tags albums with their original release date
+├── lidarr/Dockerfile            # hotio lidarr + mutagen (build context: album-date-fix/)
 ├── mkv-fix/
 │   └── fix-mkv-compression.sh   # Sonarr/Radarr Custom Script: strips track compression on import
 ├── radarr/Dockerfile            # hotio radarr + mkvtoolnix (build context: mkv-fix/)
